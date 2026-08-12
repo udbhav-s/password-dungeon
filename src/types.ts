@@ -37,6 +37,15 @@ export interface Player {
   inventory: Item[];
 }
 
+export type DialogMessageSequence = readonly string[];
+
+export interface DialogState {
+  messages: DialogMessageSequence;
+  messageIndex: number;
+  visibleCharacters: number;
+  charactersPerSecond: number;
+}
+
 export interface Room {
   id: string;
   name: string;
