@@ -5,6 +5,7 @@ import {
   engineInit,
   keyDirection,
   keyWasPressed,
+  mouseWheel,
   setCameraPos,
   setCameraScale,
   setCanvasClearColor,
@@ -55,6 +56,12 @@ const player: Player = {
   color: "#55aaff",
   inventory: [],
 };
+
+const ZOOM_STEP = 0.1;
+// Fixed for now; a future player-progression system can raise/lower these.
+let minZoom = 1.6;
+let maxZoom = 2.5;
+let zoomLevel = 2;
 
 let currentRoom: Room = simpleDungeon.rooms[simpleDungeon.startRoom];
 let roomItems: Item[] = [];
@@ -143,7 +150,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   player.position = { x: worldPosition.x, y: worldPosition.y };
   previousPlayerTile = playerTile();
   transitionCooldown = 0.25;
-  setCameraPos(vec2());
+  setCameraPos(vec2(player.position.x, player.position.y));
   console.log(`Entered ${currentRoom.name}.`);
 
   if (currentRoom.id === "room-2") {
@@ -256,16 +263,28 @@ function unlockCurrentRoomDoors(): void {
   if (unlockedDoor) console.log(`Unlocked the doors in ${currentRoom.name}.`);
 }
 
+function applyZoom(): void {
+  setCameraScale(ROOM_WIDTH * zoomLevel);
+}
+
+function updateZoom(): void {
+  if (mouseWheel === 0) return;
+  zoomLevel = Math.min(maxZoom, Math.max(minZoom, zoomLevel - mouseWheel * ZOOM_STEP));
+  applyZoom();
+}
+
 function gameInit(): void {
   setCanvasFixedSize(vec2(1024, 1024));
   setCanvasPixelated(true);
   setCanvasClearColor(BLACK);
-  setCameraScale(ROOM_WIDTH);
+  applyZoom();
   loadRoom(simpleDungeon.startRoom);
-  console.log(`Opened ${simpleDungeon.name}. Use WASD or the arrow keys to move.`);
+  console.log(`Opened ${simpleDungeon.name}. Use WASD or the arrow keys to move, scroll to zoom.`);
 }
 
 function gameUpdate(): void {
+  updateZoom();
+  setCameraPos(vec2(player.position.x, player.position.y));
   transitionCooldown = Math.max(0, transitionCooldown - timeDelta);
 
   if (isDialogOpen()) {
