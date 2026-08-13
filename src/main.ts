@@ -16,6 +16,7 @@ import {
 } from "littlejsengine";
 import room1Data from "./data/rooms/room-1.json";
 import room2Data from "./data/rooms/room-2.json";
+import room3Data from "./data/rooms/room-3.json";
 import type {
   Dungeon,
   Door,
@@ -38,6 +39,7 @@ import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
 const room1: Room = room1Data as unknown as Room;
 const room2: Room = room2Data as unknown as Room;
+const room3: Room = room3Data as unknown as Room;
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -46,6 +48,7 @@ const simpleDungeon: Dungeon = {
   rooms: {
     [room1.id]: room1,
     [room2.id]: room2,
+    [room3.id]: room3,
   },
 };
 
