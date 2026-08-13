@@ -18,6 +18,7 @@ import room1Data from "./data/rooms/room-1.json";
 import room2Data from "./data/rooms/room-2.json";
 import room3Data from "./data/rooms/room-3.json";
 import room4Data from "./data/rooms/room-4.json";
+import room5Data from "./data/rooms/room-5.json";
 import type {
   Dungeon,
   Door,
@@ -38,6 +39,15 @@ import {
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { drawInventoryBar, drawInventoryPopup, isInventoryOpen, updateInventory } from "./inventory";
 import {
+  checkMirrorGoal,
+  drawMirrorPlayer,
+  getMirrorPlayerTile,
+  isMirrorRoom,
+  MIRROR_PLAYER_SIZE,
+  resetMirrorRoom,
+  updateMirrorPlayer,
+} from "./mirror-room";
+import {
   consumePressurePuzzleFailure,
   drawPressurePads,
   hasPressurePuzzleSucceeded,
@@ -51,6 +61,7 @@ const room1: Room = room1Data as unknown as Room;
 const room2: Room = room2Data as unknown as Room;
 const room3: Room = room3Data as unknown as Room;
 const room4: Room = room4Data as unknown as Room;
+const room5: Room = room5Data as unknown as Room;
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -75,9 +86,21 @@ const pressureDungeon: Dungeon = {
   },
 };
 
-// Hot swap: point at pressureDungeon to test the new pressure-pad puzzle room.
+const mirrorDungeon: Dungeon = {
+  id: "mirror-dungeon",
+  name: "Mirror Dungeon",
+  startRoom: "room-5",
+  rooms: {
+    [room1.id]: room1,
+    [room2.id]: room2,
+    [room3.id]: room3,
+    [room5.id]: room5,
+  },
+};
+
+// Hot swap: point at pressureDungeon/mirrorDungeon to test those rooms in isolation.
 // Swap back to simpleDungeon to return to the original start.
-const activeDungeon: Dungeon = pressureDungeon;
+const activeDungeon: Dungeon = mirrorDungeon;
 
 const player: Player = {
   position: vec2(),
@@ -87,6 +110,8 @@ const player: Player = {
   inventory: [],
 };
 
+const CANVAS_SIZE = 1024;
+const LAVA_COLOR = "#c0392b";
 const ZOOM_STEP = 0.1;
 // Fixed for now; a future player-progression system can raise/lower these.
 let minZoom = 1.6;
@@ -115,7 +140,15 @@ function tileAt(room: Room, x: number, y: number): Tile {
 
   const symbol = room.tiles[y][x];
   const type: TileType =
-    symbol === "#" ? "wall" : symbol === "D" ? "door" : symbol === "O" ? "object" : "space";
+    symbol === "#"
+      ? "wall"
+      : symbol === "D"
+        ? "door"
+        : symbol === "O"
+          ? "object"
+          : symbol === "L"
+            ? "lava"
+            : "space";
   return { type, color: type === "wall" ? room.wallColor : undefined };
 }
 
@@ -163,6 +196,11 @@ function isWallTile(room: Room, x: number, y: number): boolean {
   return true;
 }
 
+function isLavaTile(room: Room, x: number, y: number): boolean {
+  if (x < 0 || x >= room.width || y < 0 || y >= room.height) return false;
+  return tileAt(room, x, y).type === "lava";
+}
+
 function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   const nextRoom = activeDungeon.rooms[roomId];
   if (!nextRoom) {
@@ -175,13 +213,16 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
     .filter((item) => !collectedItemIds.has(item.id))
     .map((item) => ({ ...item, position: { ...item.position } }));
   resetPressurePuzzle(currentRoom);
+  resetMirrorRoom(currentRoom);
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(spawn.x, spawn.y);
   player.position = { x: worldPosition.x, y: worldPosition.y };
   previousPlayerTile = playerTile();
   transitionCooldown = 0.25;
-  setCameraPos(vec2(player.position.x, player.position.y));
+  applyZoom();
+  const target = cameraTarget();
+  setCameraPos(vec2(target.x, target.y));
   console.log(`Entered ${currentRoom.name}.`);
 
   if (currentRoom.id === "room-2") {
@@ -189,8 +230,8 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   }
 }
 
-function overlapsWall(position: { x: number; y: number }): boolean {
-  const halfSize = player.size / 2;
+function overlapsWall(position: { x: number; y: number }, size: number = player.size): boolean {
+  const halfSize = size / 2;
   const left = Math.floor(position.x - halfSize + ROOM_WIDTH / 2);
   const right = Math.floor(position.x + halfSize + ROOM_WIDTH / 2);
   const top = Math.floor(ROOM_HEIGHT / 2 - (position.y + halfSize));
@@ -294,18 +335,27 @@ function unlockCurrentRoomDoors(): void {
   if (unlockedDoor) console.log(`Unlocked the doors in ${currentRoom.name}.`);
 }
 
+function cameraTarget(): { x: number; y: number } {
+  return currentRoom.fixedZoom ? { x: 0, y: 0 } : { x: player.position.x, y: player.position.y };
+}
+
 function applyZoom(): void {
+  if (currentRoom.fixedZoom) {
+    setCameraScale(CANVAS_SIZE / ROOM_WIDTH);
+    return;
+  }
   setCameraScale(ROOM_WIDTH * zoomLevel);
 }
 
 function updateZoom(): void {
+  if (currentRoom.fixedZoom) return;
   if (mouseWheel === 0) return;
   zoomLevel = Math.min(maxZoom, Math.max(minZoom, zoomLevel - mouseWheel * ZOOM_STEP));
   applyZoom();
 }
 
 function gameInit(): void {
-  setCanvasFixedSize(vec2(1024, 1024));
+  setCanvasFixedSize(vec2(CANVAS_SIZE, CANVAS_SIZE));
   setCanvasPixelated(true);
   setCanvasClearColor(BLACK);
   applyZoom();
@@ -320,7 +370,8 @@ function gameUpdate(): void {
   }
 
   if (!isComputerOpen()) updateZoom();
-  setCameraPos(vec2(player.position.x, player.position.y));
+  const target = cameraTarget();
+  setCameraPos(vec2(target.x, target.y));
   transitionCooldown = Math.max(0, transitionCooldown - timeDelta);
 
   if (isDialogOpen()) {
@@ -337,7 +388,11 @@ function gameUpdate(): void {
   updateInventory(player.inventory);
   if (isInventoryOpen()) return;
 
-  movePlayer(keyDirection());
+  const direction = keyDirection();
+  movePlayer(direction);
+  updateMirrorPlayer(currentRoom, direction, player.speed, (position) =>
+    overlapsWall(position, MIRROR_PLAYER_SIZE),
+  );
   collectItems();
 
   updatePressurePuzzle(currentRoom, playerTile());
@@ -346,6 +401,21 @@ function gameUpdate(): void {
     player.position = { x: spawn.x, y: spawn.y };
   }
   if (hasPressurePuzzleSucceeded()) unlockCurrentRoomDoors();
+
+  if (isMirrorRoom(currentRoom)) {
+    const currentPlayerTile = playerTile();
+    const mirrorTile = getMirrorPlayerTile();
+    const onLava =
+      isLavaTile(currentRoom, currentPlayerTile.x, currentPlayerTile.y) ||
+      isLavaTile(currentRoom, mirrorTile.x, mirrorTile.y);
+    if (onLava) {
+      const spawn = tileToWorld(currentRoom.playerStart.x, currentRoom.playerStart.y);
+      player.position = { x: spawn.x, y: spawn.y };
+      resetMirrorRoom(currentRoom);
+    } else if (checkMirrorGoal(currentRoom)) {
+      unlockCurrentRoomDoors();
+    }
+  }
 
   if (isDialogOpen()) return;
 
@@ -375,6 +445,11 @@ function gameRender(): void {
     for (let x = 0; x < currentRoom.width; x += 1) {
       const tile = tileAt(currentRoom, x, y);
       const door = tile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
+      if (tile.type === "lava") {
+        const position = tileToWorld(x + 0.5, y + 0.5);
+        drawRect(vec2(position.x, position.y), vec2(1), parseColor(LAVA_COLOR));
+        continue;
+      }
       if (tile.type !== "wall" && door?.locked !== true) continue;
       const position = tileToWorld(x + 0.5, y + 0.5);
       const color = door?.locked === true ? "#777777" : currentRoom.wallColor;
@@ -383,6 +458,7 @@ function gameRender(): void {
   }
 
   drawPressurePads(currentRoom);
+  drawMirrorPlayer(currentRoom, parseColor);
 
   for (const item of roomItems) {
     const position = tileToWorld(item.position.x, item.position.y);

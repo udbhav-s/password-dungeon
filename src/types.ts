@@ -1,7 +1,7 @@
 export const ROOM_WIDTH = 32;
 export const ROOM_HEIGHT = 32;
 
-export type TileType = "space" | "wall" | "door" | "object";
+export type TileType = "space" | "wall" | "door" | "object" | "lava";
 
 export interface Point {
   x: number;
@@ -87,6 +87,13 @@ export interface Room {
   pressureButton?: PressureButton;
   /// Bit pattern the pads must be set to (bit N == pad pairIndex N's active value) for the button to unlock doors.
   pressureTarget?: number;
+  /// Presence of a mirror player spawn makes this a mirror room: a second entity that moves in
+  /// lockstep with the player's input but has its own position and collisions.
+  mirrorPlayerStart?: Point;
+  /// Tile the mirror player must reach to unlock this room's doors.
+  mirrorGoal?: Point;
+  /// Overrides the normal scroll-zoom and shows the full ROOM_WIDTH x ROOM_HEIGHT room at once.
+  fixedZoom?: boolean;
 }
 
 export interface Dungeon {
