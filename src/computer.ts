@@ -14,8 +14,6 @@ import {
   resetMemoryView,
   updateMemoryView,
   drawMemoryView,
-  handleMemoryViewWheel,
-  handleMemoryViewClick,
 } from "./memory-view";
 
 const CANVAS_PIXELS = 1024;
@@ -71,8 +69,6 @@ const tabs: ComputerTab[] = [
     label: "Memory",
     isVisible: hasMemoryViewerAccess,
     update: updateMemoryView,
-    onWheel: handleMemoryViewWheel,
-    onClick: handleMemoryViewClick,
     draw: drawMemoryView,
   },
 ];
