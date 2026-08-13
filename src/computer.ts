@@ -8,8 +8,8 @@ import {
   vec2,
   WHITE,
 } from "littlejsengine";
-import { Buffer1ProgramManager } from "./program-manager-buffer1";
-import buffer1Source from "../c_levels/buffer1.c?raw";
+import { Room1ProgramManager } from "./program-manager-room1";
+import room1Source from "../c_levels/room1.c?raw";
 import {
   resetMemoryView,
   updateMemoryView,
@@ -41,10 +41,10 @@ interface ComputerTab {
 }
 
 let computerOpen = false;
-let programManager = new Buffer1ProgramManager();
+let programManager = new Room1ProgramManager();
 let activeTabId = "console";
 let codeScrollOffset = 0;
-const buffer1SourceLines = buffer1Source.split("\n");
+const room1SourceLines = room1Source.split("\n");
 
 // TODO: update critirea when items are added
 function hasSourceCodeAccess(): boolean {
@@ -163,7 +163,7 @@ window.addEventListener("keydown", handleTerminalKey);
 
 export function openComputer(): void {
   computerOpen = true;
-  programManager = new Buffer1ProgramManager();
+  programManager = new Room1ProgramManager();
   activeTabId = "console";
   codeScrollOffset = 0;
   resetMemoryView(programManager);
@@ -184,7 +184,7 @@ function visibleCodeLines(): number {
 }
 
 function maxCodeScrollOffset(): number {
-  return Math.max(0, buffer1SourceLines.length - visibleCodeLines());
+  return Math.max(0, room1SourceLines.length - visibleCodeLines());
 }
 
 export function updateComputer(): void {
@@ -246,7 +246,7 @@ function drawTerminal(): void {
   });
 
   if (programManager.isLoading) {
-    drawTerminalText("loading buffer1.c...", WINDOW_X + TERMINAL_PADDING, firstLineY);
+    drawTerminalText("loading room1.c...", WINDOW_X + TERMINAL_PADDING, firstLineY);
     return;
   }
 
@@ -261,7 +261,7 @@ function drawTerminal(): void {
 
 function drawCodeView(): void {
   const firstLineY = contentTop() + TERMINAL_PADDING;
-  const lines = buffer1SourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
+  const lines = room1SourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
 
   lines.forEach((line, index) => {
     drawTerminalText(line, WINDOW_X + TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
@@ -275,7 +275,7 @@ function drawSourceScrollbar(): void {
   const trackBottom = WINDOW_Y + WINDOW_HEIGHT - TERMINAL_PADDING;
   const trackHeight = trackBottom - trackTop;
   const visibleLines = visibleCodeLines();
-  const totalLines = buffer1SourceLines.length;
+  const totalLines = room1SourceLines.length;
   const maxScroll = maxCodeScrollOffset();
   const thumbHeight = Math.max(
     SOURCE_SCROLLBAR_MIN_THUMB_HEIGHT,

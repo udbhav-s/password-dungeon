@@ -91,6 +91,18 @@ function tileAt(room: Room, x: number, y: number): Tile {
   const symbol = room.tiles[y][x];
   const type: TileType =
     symbol === "#" ? "wall" : symbol === "D" ? "door" : symbol === "O" ? "object" : "space";
+
+  // Room objects are defined separately from the tile map, but still occupy
+  // their grid tile for movement collision.
+  if (
+    type === "space" &&
+    room.objects.some(
+      (object) => Math.floor(object.position.x) === x && Math.floor(object.position.y) === y,
+    )
+  ) {
+    return { type: "object" };
+  }
+
   return { type, color: type === "wall" ? room.wallColor : undefined };
 }
 
@@ -317,7 +329,7 @@ function gameUpdate(): void {
   if (isDialogOpen()) return;
 
   if (enteredLockedDoorAdjacentTile()) {
-    openDialog(["hmmm.. this door is locked"]);
+    openDialog(["hmm.. this door seems locked.", "maybe it needs a password to open?"]);
     return;
   }
 
