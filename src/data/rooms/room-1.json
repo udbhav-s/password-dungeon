@@ -74,6 +74,20 @@
       "description": "A bright red apple.",
       "color": "#ef3340",
       "position": { "x": 8.5, "y": 8.5 }
+    },
+    {
+      "id": "apple-2",
+      "name": "Apple",
+      "description": "A bright red apple.",
+      "color": "#ef3340",
+      "position": { "x": 10.5, "y": 2.5 }
+    },
+    {
+      "id": "apple-3",
+      "name": "Apple",
+      "description": "A bright green apple.",
+      "color": "#3ff340",
+      "position": { "x": 2.5, "y": 3.5 }
     }
   ]
 }

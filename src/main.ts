@@ -35,6 +35,7 @@ import {
   updateComputer,
 } from "./computer";
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
+import { drawInventoryBar, drawInventoryPopup, isInventoryOpen, updateInventory } from "./inventory";
 import { drawTitleScreen, isTitleScreenActive, updateTitleScreen } from "./title-screen";
 import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
@@ -307,6 +308,9 @@ function gameUpdate(): void {
     return;
   }
 
+  updateInventory(player.inventory);
+  if (isInventoryOpen()) return;
+
   movePlayer(keyDirection());
   collectItems();
 
@@ -360,6 +364,13 @@ function gameRender(): void {
 
 function gameRenderPost(): void {
   drawDialog(player.position.y);
+
+  if (isInventoryOpen()) {
+    drawInventoryPopup(player.inventory);
+  } else if (!isTitleScreenActive() && !isComputerOpen() && !isDialogOpen()) {
+    drawInventoryBar(player.inventory);
+  }
+
   drawTitleScreen();
 }
 
