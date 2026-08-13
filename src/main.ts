@@ -25,7 +25,13 @@ import type {
   Tile,
   TileType,
 } from "./types";
-import { drawComputer, isComputerOpen, openComputer, updateComputer } from "./computer";
+import {
+  drawComputer,
+  hasComputerProgramSucceeded,
+  isComputerOpen,
+  openComputer,
+  updateComputer,
+} from "./computer";
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
@@ -269,6 +275,7 @@ function gameUpdate(): void {
 
   if (isComputerOpen()) {
     updateComputer();
+    if (hasComputerProgramSucceeded()) unlockCurrentRoomDoors();
     return;
   }
 
@@ -283,7 +290,6 @@ function gameUpdate(): void {
   }
 
   if (keyWasPressed("Enter") && computerInRange()) {
-    unlockCurrentRoomDoors();
     openComputer();
     return;
   }
