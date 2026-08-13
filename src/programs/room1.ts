@@ -1,4 +1,4 @@
-import { ProgramManagerBase } from "./program-manager-base";
+import { ProgramManagerBase } from "../program-manager-base";
 
 export class Room1ProgramManager extends ProgramManagerBase {
   constructor() {

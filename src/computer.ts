@@ -8,7 +8,7 @@ import {
   vec2,
   WHITE,
 } from "littlejsengine";
-import { Room1ProgramManager } from "./program-manager-room1";
+import { Room1ProgramManager } from "./programs/room1";
 import room1Source from "../c_levels/room1.c?raw";
 import {
   resetMemoryView,
