@@ -3,7 +3,7 @@
 
 // Single threaded MINIMAL_RUNTIME programs do not need access to
 // document.currentScript, so a simple export declaration is enough.
-var createL1Module = (() => {
+var createRoom1Module = (() => {
   // When MODULARIZE this JS may be executed later,
   // after document.currentScript is gone, so we save it.
   // In EXPORT_ES6 mode we can just use 'import.meta.url'.
@@ -576,7 +576,7 @@ function createExportWrapper(name, nargs) {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-  return locateFile('l1.wasm');
+  return locateFile('room1.wasm');
 }
 
 function getBinarySync(file) {
@@ -2240,10 +2240,10 @@ for (const prop of Object.keys(Module)) {
 
 // Export using a UMD style export, or ES6 exports if selected
 if (typeof exports === 'object' && typeof module === 'object') {
-  module.exports = createL1Module;
+  module.exports = createRoom1Module;
   // This default export looks redundant, but it allows TS to import this
   // commonjs style module.
-  module.exports.default = createL1Module;
+  module.exports.default = createRoom1Module;
 } else if (typeof define === 'function' && define['amd'])
-  define([], () => createL1Module);
+  define([], () => createRoom1Module);
 

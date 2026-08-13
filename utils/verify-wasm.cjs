@@ -104,8 +104,8 @@ async function main() {
   try {
     await verifyProgram({
       baseUrl,
-      fileName: "l1.js",
-      factoryName: "createL1Module",
+      fileName: "room1.js",
+      factoryName: "createRoom1Module",
       input: "password",
       expected: { bufferSize: 10, output: ["Enter the password", "Success!"], successful: true },
     });

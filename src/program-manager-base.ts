@@ -21,7 +21,7 @@ type ProgramModuleOptions = {
 };
 
 type ProgramModuleFactory = (options: ProgramModuleOptions) => Promise<ProgramWasmModule>;
-type ProgramFactoryName = "createL1Module" | "createBuffer1Module";
+type ProgramFactoryName = "createRoom1Module" | "createBuffer1Module";
 
 interface ProgramConfig {
   scriptPath: string;
@@ -30,7 +30,7 @@ interface ProgramConfig {
 
 declare global {
   interface Window {
-    createL1Module?: ProgramModuleFactory;
+    createRoom1Module?: ProgramModuleFactory;
     createBuffer1Module?: ProgramModuleFactory;
   }
 }
@@ -43,7 +43,7 @@ export interface ProgramManagerView {
 const wasmGluePromises: Partial<Record<ProgramFactoryName, Promise<ProgramModuleFactory>>> = {};
 
 function moduleFactory(name: ProgramFactoryName): ProgramModuleFactory | undefined {
-  return name === "createL1Module" ? window.createL1Module : window.createBuffer1Module;
+  return name === "createRoom1Module" ? window.createRoom1Module : window.createBuffer1Module;
 }
 
 function loadWasmGlue(config: ProgramConfig): Promise<ProgramModuleFactory> {
