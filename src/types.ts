@@ -15,6 +15,7 @@ export interface Tile {
 
 export interface Door extends Tile {
   type: "door";
+  locked?: boolean;
   x: number;
   y: number;
   toRoom: string;

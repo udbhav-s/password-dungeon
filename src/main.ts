@@ -20,6 +20,7 @@ import type {
   Door,
   Item,
   Player,
+  Point,
   Room,
   Tile,
   TileType,
@@ -53,6 +54,8 @@ let currentRoom: Room = simpleDungeon.rooms[simpleDungeon.startRoom];
 let roomItems: Item[] = [];
 const collectedItemIds = new Set<string>();
 let transitionCooldown = 0;
+let previousPlayerTile: Point = { x: 0, y: 0 };
+let lockedDoorDialogShown = false;
 
 function parseColor(hex: string): Color {
   const value = hex.replace("#", "");
@@ -80,6 +83,13 @@ function tileToWorld(x: number, y: number): { x: number; y: number } {
   };
 }
 
+function playerTile(): Point {
+  return {
+    x: Math.floor(player.position.x + ROOM_WIDTH / 2),
+    y: Math.floor(ROOM_HEIGHT / 2 - player.position.y),
+  };
+}
+
 function doorAt(room: Room, x: number, y: number): Door | undefined {
   return room.doors.find((door) => door.x === x && door.y === y);
 }
@@ -87,13 +97,26 @@ function doorAt(room: Room, x: number, y: number): Door | undefined {
 function isWallTile(room: Room, x: number, y: number): boolean {
   if (x >= 0 && x < room.width && y >= 0 && y < room.height) {
     const tileType = tileAt(room, x, y).type;
-    return tileType === "wall" || tileType === "object";
+    const door = tileType === "door" ? doorAt(room, x, y) : undefined;
+    return tileType === "wall" || tileType === "object" || door?.locked === true;
   }
 
-  if (y < 0) return !doorAt(room, x, 0);
-  if (y >= room.height) return !doorAt(room, x, room.height - 1);
-  if (x < 0) return !doorAt(room, 0, y);
-  if (x >= room.width) return !doorAt(room, room.width - 1, y);
+  if (y < 0) {
+    const door = doorAt(room, x, 0);
+    return !door || door.locked === true;
+  }
+  if (y >= room.height) {
+    const door = doorAt(room, x, room.height - 1);
+    return !door || door.locked === true;
+  }
+  if (x < 0) {
+    const door = doorAt(room, 0, y);
+    return !door || door.locked === true;
+  }
+  if (x >= room.width) {
+    const door = doorAt(room, room.width - 1, y);
+    return !door || door.locked === true;
+  }
   return true;
 }
 
@@ -112,6 +135,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(spawn.x, spawn.y);
   player.position = { x: worldPosition.x, y: worldPosition.y };
+  previousPlayerTile = playerTile();
   transitionCooldown = 0.25;
   setCameraPos(vec2());
   console.log(`Entered ${currentRoom.name}.`);
@@ -184,12 +208,46 @@ function collectItems(): void {
   roomItems = remainingItems;
 }
 
+function enteredLockedDoorAdjacentTile(): boolean {
+  const currentPlayerTile = playerTile();
+  const enteredNewTile =
+    currentPlayerTile.x !== previousPlayerTile.x || currentPlayerTile.y !== previousPlayerTile.y;
+  previousPlayerTile = currentPlayerTile;
+
+  if (!enteredNewTile || lockedDoorDialogShown) return false;
+
+  const isAdjacentToLockedDoor = currentRoom.doors.some(
+    (door) =>
+      door.locked === true &&
+      Math.abs(door.x - currentPlayerTile.x) + Math.abs(door.y - currentPlayerTile.y) === 1,
+  );
+
+  if (isAdjacentToLockedDoor) {
+    lockedDoorDialogShown = true;
+    return true;
+  }
+
+  return false;
+}
+
 function computerInRange(): boolean {
   const computer = currentRoom.objects.find((object) => object.objectType === "computer");
   if (!computer) return false;
 
   const computerWorld = tileToWorld(computer.position.x, computer.position.y);
   return Math.hypot(player.position.x - computerWorld.x, player.position.y - computerWorld.y) <= 1.5;
+}
+
+function unlockCurrentRoomDoors(): void {
+  let unlockedDoor = false;
+
+  for (const door of currentRoom.doors) {
+    if (door.locked !== true) continue;
+    door.locked = false;
+    unlockedDoor = true;
+  }
+
+  if (unlockedDoor) console.log(`Unlocked the doors in ${currentRoom.name}.`);
 }
 
 function gameInit(): void {
@@ -217,7 +275,15 @@ function gameUpdate(): void {
   movePlayer(keyDirection());
   collectItems();
 
+  if (isDialogOpen()) return;
+
+  if (enteredLockedDoorAdjacentTile()) {
+    openDialog(["hmmm.. this door is locked"]);
+    return;
+  }
+
   if (keyWasPressed("Enter") && computerInRange()) {
+    unlockCurrentRoomDoors();
     openComputer();
     return;
   }
@@ -236,9 +302,12 @@ function gameRender(): void {
 
   for (let y = 0; y < currentRoom.height; y += 1) {
     for (let x = 0; x < currentRoom.width; x += 1) {
-      if (tileAt(currentRoom, x, y).type !== "wall") continue;
+      const tile = tileAt(currentRoom, x, y);
+      const door = tile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
+      if (tile.type !== "wall" && door?.locked !== true) continue;
       const position = tileToWorld(x + 0.5, y + 0.5);
-      drawRect(vec2(position.x, position.y), vec2(1), parseColor(currentRoom.wallColor));
+      const color = door?.locked === true ? "#777777" : currentRoom.wallColor;
+      drawRect(vec2(position.x, position.y), vec2(1), parseColor(color));
     }
   }
 
