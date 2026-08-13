@@ -4,6 +4,7 @@ import {
   drawRect,
   engineInit,
   keyDirection,
+  keyWasPressed,
   setCameraPos,
   setCameraScale,
   setCanvasClearColor,
@@ -23,6 +24,7 @@ import type {
   Tile,
   TileType,
 } from "./types";
+import { drawComputer, isComputerOpen, openComputer, updateComputer } from "./computer";
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
@@ -66,7 +68,8 @@ function tileAt(room: Room, x: number, y: number): Tile {
   }
 
   const symbol = room.tiles[y][x];
-  const type: TileType = symbol === "#" ? "wall" : symbol === "D" ? "door" : "space";
+  const type: TileType =
+    symbol === "#" ? "wall" : symbol === "D" ? "door" : symbol === "O" ? "object" : "space";
   return { type, color: type === "wall" ? room.wallColor : undefined };
 }
 
@@ -83,7 +86,8 @@ function doorAt(room: Room, x: number, y: number): Door | undefined {
 
 function isWallTile(room: Room, x: number, y: number): boolean {
   if (x >= 0 && x < room.width && y >= 0 && y < room.height) {
-    return tileAt(room, x, y).type === "wall";
+    const tileType = tileAt(room, x, y).type;
+    return tileType === "wall" || tileType === "object";
   }
 
   if (y < 0) return !doorAt(room, x, 0);
@@ -180,6 +184,14 @@ function collectItems(): void {
   roomItems = remainingItems;
 }
 
+function computerInRange(): boolean {
+  const computer = currentRoom.objects.find((object) => object.objectType === "computer");
+  if (!computer) return false;
+
+  const computerWorld = tileToWorld(computer.position.x, computer.position.y);
+  return Math.hypot(player.position.x - computerWorld.x, player.position.y - computerWorld.y) <= 1.5;
+}
+
 function gameInit(): void {
   setCanvasFixedSize(vec2(1024, 1024));
   setCanvasPixelated(true);
@@ -197,8 +209,18 @@ function gameUpdate(): void {
     return;
   }
 
+  if (isComputerOpen()) {
+    updateComputer();
+    return;
+  }
+
   movePlayer(keyDirection());
   collectItems();
+
+  if (keyWasPressed("Enter") && computerInRange()) {
+    openComputer();
+    return;
+  }
 
   if (transitionCooldown === 0) {
     const door = findBoundaryDoor();
@@ -207,6 +229,11 @@ function gameUpdate(): void {
 }
 
 function gameRender(): void {
+  if (isComputerOpen()) {
+    drawComputer();
+    return;
+  }
+
   for (let y = 0; y < currentRoom.height; y += 1) {
     for (let x = 0; x < currentRoom.width; x += 1) {
       if (tileAt(currentRoom, x, y).type !== "wall") continue;
@@ -218,6 +245,11 @@ function gameRender(): void {
   for (const item of roomItems) {
     const position = tileToWorld(item.position.x, item.position.y);
     drawRect(vec2(position.x, position.y), vec2(0.6), parseColor(item.color));
+  }
+
+  for (const object of currentRoom.objects) {
+    const position = tileToWorld(object.position.x, object.position.y);
+    drawRect(vec2(position.x, position.y), vec2(0.8), parseColor(object.color));
   }
 
   drawRect(vec2(player.position.x, player.position.y), vec2(player.size), parseColor(player.color));

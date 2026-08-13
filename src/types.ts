@@ -1,7 +1,7 @@
 export const ROOM_WIDTH = 32;
 export const ROOM_HEIGHT = 32;
 
-export type TileType = "space" | "wall" | "door";
+export type TileType = "space" | "wall" | "door" | "object";
 
 export interface Point {
   x: number;
@@ -19,6 +19,17 @@ export interface Door extends Tile {
   y: number;
   toRoom: string;
   entry: Point;
+}
+
+export type RoomObjectType = "computer";
+
+export interface RoomObject extends Tile {
+  type: "object";
+  id: string;
+  name: string;
+  objectType: RoomObjectType;
+  color: string;
+  position: Point;
 }
 
 export interface Item {
@@ -54,6 +65,7 @@ export interface Room {
   wallColor: string;
   tiles: string[];
   doors: Door[];
+  objects: RoomObject[];
   items: Item[];
   playerStart: Point;
 }
