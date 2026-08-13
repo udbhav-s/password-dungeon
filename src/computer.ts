@@ -27,6 +27,8 @@ const TERMINAL_PADDING = 32;
 const TERMINAL_TEXT_SIZE = 14;
 const TERMINAL_LINE_HEIGHT = 24;
 const TERMINAL_MAX_LINES = 24;
+const SOURCE_SCROLLBAR_WIDTH = 8;
+const SOURCE_SCROLLBAR_MIN_THUMB_HEIGHT = 24;
 
 interface ComputerTab {
   id: string;
@@ -264,6 +266,41 @@ function drawCodeView(): void {
   lines.forEach((line, index) => {
     drawTerminalText(line, WINDOW_X + TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
   });
+
+  drawSourceScrollbar();
+}
+
+function drawSourceScrollbar(): void {
+  const trackTop = contentTop() + TERMINAL_PADDING;
+  const trackBottom = WINDOW_Y + WINDOW_HEIGHT - TERMINAL_PADDING;
+  const trackHeight = trackBottom - trackTop;
+  const visibleLines = visibleCodeLines();
+  const totalLines = buffer1SourceLines.length;
+  const maxScroll = maxCodeScrollOffset();
+  const thumbHeight = Math.max(
+    SOURCE_SCROLLBAR_MIN_THUMB_HEIGHT,
+    trackHeight * Math.min(1, visibleLines / totalLines),
+  );
+  const thumbTravel = trackHeight - thumbHeight;
+  const thumbOffset = maxScroll === 0 ? 0 : (codeScrollOffset / maxScroll) * thumbTravel;
+  const scrollbarX = WINDOW_X + WINDOW_WIDTH - TERMINAL_PADDING / 2;
+
+  drawRect(
+    vec2(scrollbarX, trackTop + trackHeight / 2),
+    vec2(SOURCE_SCROLLBAR_WIDTH, trackHeight),
+    parseColor("#222222"),
+    0,
+    false,
+    true,
+  );
+  drawRect(
+    vec2(scrollbarX, trackTop + thumbOffset + thumbHeight / 2),
+    vec2(SOURCE_SCROLLBAR_WIDTH, thumbHeight),
+    parseColor("#9b59d0"),
+    0,
+    false,
+    true,
+  );
 }
 
 function drawTabs(): void {
