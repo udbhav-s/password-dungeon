@@ -10,6 +10,13 @@ import {
 } from "littlejsengine";
 import { L1ProgramManager } from "./program-manager";
 import l1Source from "../c_levels/l1.c?raw";
+import {
+  resetMemoryView,
+  updateMemoryView,
+  drawMemoryView,
+  handleMemoryViewWheel,
+  handleMemoryViewClick,
+} from "./memory-view";
 
 const CANVAS_PIXELS = 1024;
 const WINDOW_X = 64;
@@ -27,6 +34,9 @@ interface ComputerTab {
   id: string;
   label: string;
   isVisible: () => boolean;
+  update?: () => void;
+  onWheel?: (direction: number) => void;
+  onClick?: (x: number, y: number) => void;
   draw: () => void;
 }
 
@@ -41,10 +51,30 @@ function hasSourceCodeAccess(): boolean {
   return true;
 }
 
+// TODO: update criteria when the memory scanner item is added
+function hasMemoryViewerAccess(): boolean {
+  return true;
+}
+
 // New tabs can be added here — each gets its own visibility condition and draw function.
 const tabs: ComputerTab[] = [
   { id: "console", label: "Console", isVisible: () => true, draw: () => drawTerminal() },
-  { id: "source", label: "View Source", isVisible: hasSourceCodeAccess, draw: () => drawCodeView() },
+  {
+    id: "source",
+    label: "View Source",
+    isVisible: hasSourceCodeAccess,
+    onWheel: handleSourceWheel,
+    draw: () => drawCodeView(),
+  },
+  {
+    id: "memory",
+    label: "Memory",
+    isVisible: hasMemoryViewerAccess,
+    update: updateMemoryView,
+    onWheel: handleMemoryViewWheel,
+    onClick: handleMemoryViewClick,
+    draw: drawMemoryView,
+  },
 ];
 
 function visibleTabs(): ComputerTab[] {
@@ -117,7 +147,7 @@ function appendTerminalCharacter(character: string): void {
 }
 
 function handleTerminalKey(event: KeyboardEvent): void {
-  if (!computerOpen || !programManager.isRunning) return;
+  if (!computerOpen || !programManager.isRunning || activeTabId !== "console") return;
 
   if (event.key === "Enter") {
     event.preventDefault();
@@ -138,6 +168,7 @@ export function openComputer(): void {
   programManager = new L1ProgramManager();
   activeTabId = "console";
   codeScrollOffset = 0;
+  resetMemoryView(programManager);
   void programManager.start();
 }
 
@@ -179,17 +210,29 @@ export function updateComputer(): void {
 
   if (mouseWasPressed(0)) {
     const statusBarCenterY = WINDOW_Y + STATUS_BAR_HEIGHT / 2;
+    let hitTab = false;
     tabLayout().forEach(({ tab, centerX, width }) => {
       if (isInside(mousePosScreen.x, mousePosScreen.y, centerX, statusBarCenterY, width, STATUS_BAR_HEIGHT)) {
         activeTabId = tab.id;
+        hitTab = true;
       }
     });
+
+    if (!hitTab) {
+      currentTab()?.onClick?.(mousePosScreen.x, mousePosScreen.y);
+    }
   }
 
-  if (activeTabId === "source" && mouseWheel !== 0) {
+  if (mouseWheel !== 0) {
     const direction = mouseWheel > 0 ? 1 : -1;
-    codeScrollOffset = Math.min(maxCodeScrollOffset(), Math.max(0, codeScrollOffset + direction));
+    currentTab()?.onWheel?.(direction);
   }
+
+  currentTab()?.update?.();
+}
+
+function handleSourceWheel(direction: number): void {
+  codeScrollOffset = Math.min(maxCodeScrollOffset(), Math.max(0, codeScrollOffset + direction));
 }
 
 function drawTerminalText(text: string, x: number, y: number, center = false): void {
@@ -289,8 +332,4 @@ export function drawComputer(): void {
   drawTabs();
   const tab = currentTab() ?? visibleTabs()[0];
   tab?.draw();
-}
-
-export function getProgramMemory(): Uint8Array {
-  return programManager.programMemory;
 }

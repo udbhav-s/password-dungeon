@@ -8,6 +8,14 @@ export interface L1WasmModule {
   ) => unknown;
 }
 
+export interface L1WasmExports {
+  memory: WebAssembly.Memory;
+  __indirect_function_table: WebAssembly.Table;
+  emscripten_stack_get_current: () => number;
+  get_buffer_address: () => number;
+  get_buffer_size: () => number;
+}
+
 type L1ModuleFactory = (options: {
   locateFile: (fileName: string) => string;
   noInitialRun: boolean;
@@ -16,6 +24,10 @@ type L1ModuleFactory = (options: {
   readLine: () => Promise<string>;
   onProgramMemoryChanged: () => void;
   onProgramSuccess: () => void;
+  instantiateWasm?: (
+    imports: WebAssembly.Imports,
+    successCallback: (instance: WebAssembly.Instance, module: WebAssembly.Module) => void,
+  ) => object;
 }) => Promise<L1WasmModule>;
 
 declare global {
@@ -59,6 +71,8 @@ export class L1ProgramManager {
   private module?: L1WasmModule;
   private startPromise?: Promise<void>;
   private inputRequests: Array<(input: string) => void> = [];
+  private wasmExports?: L1WasmExports;
+  private cachedFunctionTableEntries?: Array<{ index: number; name: string }>;
 
   async start(): Promise<void> {
     if (this.startPromise) return this.startPromise;
@@ -94,6 +108,24 @@ export class L1ProgramManager {
         this.isSuccessful = true;
       },
       noInitialRun: true,
+      instantiateWasm: (
+        imports: WebAssembly.Imports,
+        successCallback: (instance: WebAssembly.Instance, module: WebAssembly.Module) => void,
+      ) => {
+        void (async () => {
+          const url = "/programs/l1.wasm";
+          let result: WebAssembly.WebAssemblyInstantiatedSource;
+          try {
+            result = await WebAssembly.instantiateStreaming(fetch(url), imports);
+          } catch {
+            // instantiateStreaming requires an application/wasm MIME type; fall back if the host doesn't send one.
+            result = await WebAssembly.instantiate(await (await fetch(url)).arrayBuffer(), imports);
+          }
+          this.wasmExports = result.instance.exports as unknown as L1WasmExports;
+          successCallback(result.instance, result.module);
+        })();
+        return {};
+      },
     });
 
     this.isLoading = false;
@@ -123,5 +155,47 @@ export class L1ProgramManager {
     const address = this.module.ccall("get_buffer_address", "number", [], []) as number;
     const size = this.module.ccall("get_buffer_size", "number", [], []) as number;
     this.programMemory.set(this.module.HEAPU8.slice(address, address + size));
+  }
+
+  get memoryBytes(): Uint8Array | undefined {
+    // emscripten_resize_heap detaches and replaces the underlying buffer, so a
+    // cached view goes stale/zero-length. Always construct a fresh view.
+    return this.wasmExports ? new Uint8Array(this.wasmExports.memory.buffer) : undefined;
+  }
+
+  get bufferAddress(): number {
+    return this.wasmExports?.get_buffer_address() ?? 0;
+  }
+
+  get bufferSize(): number {
+    return this.wasmExports?.get_buffer_size() ?? 0;
+  }
+
+  get stackPointer(): number {
+    return this.wasmExports?.emscripten_stack_get_current() ?? 0;
+  }
+
+  functionTableEntries(): Array<{ index: number; name: string }> {
+    if (!this.wasmExports) return [];
+    if (this.cachedFunctionTableEntries) return this.cachedFunctionTableEntries;
+
+    const table = this.wasmExports.__indirect_function_table;
+    const entries: Array<{ index: number; name: string }> = [];
+    for (let index = 0; index < table.length; index++) {
+      let fn: unknown;
+      try {
+        fn = table.get(index);
+      } catch {
+        continue;
+      }
+      if (!fn) continue;
+      const name = typeof (fn as { name?: string }).name === "string" && (fn as { name: string }).name.length > 0
+        ? (fn as { name: string }).name
+        : `fn#${index}`;
+      entries.push({ index, name });
+    }
+
+    this.cachedFunctionTableEntries = entries;
+    return entries;
   }
 }
