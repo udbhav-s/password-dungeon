@@ -3,7 +3,7 @@
 
 // Single threaded MINIMAL_RUNTIME programs do not need access to
 // document.currentScript, so a simple export declaration is enough.
-var createL1Module = (() => {
+var createBuffer1Module = (() => {
   // When MODULARIZE this JS may be executed later,
   // after document.currentScript is gone, so we save it.
   // In EXPORT_ES6 mode we can just use 'import.meta.url'.
@@ -576,7 +576,7 @@ function createExportWrapper(name, nargs) {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-  return locateFile('l1.wasm');
+  return locateFile('buffer1.wasm');
 }
 
 function getBinarySync(file) {
@@ -1978,7 +1978,7 @@ unexportedSymbols.forEach(unexportedRuntimeSymbol);
 function checkIncomingModuleAPI() {
   ignoredModuleProp('fetchSettings');
 }
-function __asyncjs__read_line(destination,size) { return Asyncify.handleAsync(async () => { const input = await Module.readLine(); stringToUTF8(input, destination, size); return lengthBytesUTF8(input); }); }
+function __asyncjs__gets_shim(destination) { return Asyncify.handleAsync(async () => { const input = await Module.readLine(); const inputSize = lengthBytesUTF8(input); stringToUTF8(input, destination, inputSize + 1); return destination; }); }
 function notify_input() { Module.onProgramMemoryChanged?.(); }
 function notify_success() { Module.onProgramSuccess?.(); }
 
@@ -1987,9 +1987,9 @@ var _get_buffer_address = Module['_get_buffer_address'] = makeInvalidEarlyAccess
 var _get_buffer_size = Module['_get_buffer_size'] = makeInvalidEarlyAccess('_get_buffer_size');
 var _main = Module['_main'] = makeInvalidEarlyAccess('_main');
 var _fflush = makeInvalidEarlyAccess('_fflush');
+var _strerror = makeInvalidEarlyAccess('_strerror');
 var _emscripten_stack_get_end = makeInvalidEarlyAccess('_emscripten_stack_get_end');
 var _emscripten_stack_get_base = makeInvalidEarlyAccess('_emscripten_stack_get_base');
-var _strerror = makeInvalidEarlyAccess('_strerror');
 var _malloc = makeInvalidEarlyAccess('_malloc');
 var _free = makeInvalidEarlyAccess('_free');
 var _emscripten_stack_init = makeInvalidEarlyAccess('_emscripten_stack_init');
@@ -2015,9 +2015,9 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['get_buffer_size'] != 'undefined', 'missing Wasm export: get_buffer_size');
   assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
   assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
+  assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
   assert(typeof wasmExports['emscripten_stack_get_end'] != 'undefined', 'missing Wasm export: emscripten_stack_get_end');
   assert(typeof wasmExports['emscripten_stack_get_base'] != 'undefined', 'missing Wasm export: emscripten_stack_get_base');
-  assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
   assert(typeof wasmExports['malloc'] != 'undefined', 'missing Wasm export: malloc');
   assert(typeof wasmExports['free'] != 'undefined', 'missing Wasm export: free');
   assert(typeof wasmExports['emscripten_stack_init'] != 'undefined', 'missing Wasm export: emscripten_stack_init');
@@ -2040,9 +2040,9 @@ function assignWasmExports(wasmExports) {
   _get_buffer_size = Module['_get_buffer_size'] = createExportWrapper('get_buffer_size', 0);
   _main = Module['_main'] = createExportWrapper('main', 2);
   _fflush = createExportWrapper('fflush', 1);
+  _strerror = createExportWrapper('strerror', 1);
   _emscripten_stack_get_end = wasmExports['emscripten_stack_get_end'];
   _emscripten_stack_get_base = wasmExports['emscripten_stack_get_base'];
-  _strerror = createExportWrapper('strerror', 1);
   _malloc = createExportWrapper('malloc', 1);
   _free = createExportWrapper('free', 1);
   _emscripten_stack_init = wasmExports['emscripten_stack_init'];
@@ -2065,7 +2065,7 @@ function assignWasmExports(wasmExports) {
 
 var wasmImports = {
   /** @export */
-  __asyncjs__read_line,
+  __asyncjs__gets_shim,
   /** @export */
   _abort_js: __abort_js,
   /** @export */
@@ -2240,10 +2240,10 @@ for (const prop of Object.keys(Module)) {
 
 // Export using a UMD style export, or ES6 exports if selected
 if (typeof exports === 'object' && typeof module === 'object') {
-  module.exports = createL1Module;
+  module.exports = createBuffer1Module;
   // This default export looks redundant, but it allows TS to import this
   // commonjs style module.
-  module.exports.default = createL1Module;
+  module.exports.default = createBuffer1Module;
 } else if (typeof define === 'function' && define['amd'])
-  define([], () => createL1Module);
+  define([], () => createBuffer1Module);
 

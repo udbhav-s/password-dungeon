@@ -1,5 +1,5 @@
 import { Color, engineImageFont, timeDelta, vec2 } from "littlejsengine";
-import { L1ProgramManager } from "./program-manager";
+import { ProgramManagerView } from "./program-manager-base";
 
 const CANVAS_PIXELS = 1024;
 const WINDOW_X = 64;
@@ -19,7 +19,7 @@ for (let value = 0; value < 256; value++) {
   HEX_BYTES.push(value.toString(16).padStart(2, "0"));
 }
 
-let manager: L1ProgramManager | undefined;
+let manager: ProgramManagerView | undefined;
 let previousBuffer = new Uint8Array(0);
 const changedHeat: Map<number, number> = new Map();
 let refreshTimer = 0;
@@ -96,7 +96,7 @@ function drawBuffer(buffer: Uint8Array): void {
   }
 }
 
-export function resetMemoryView(nextManager: L1ProgramManager): void {
+export function resetMemoryView(nextManager: ProgramManagerView): void {
   manager = nextManager;
   previousBuffer = new Uint8Array(0);
   changedHeat.clear();

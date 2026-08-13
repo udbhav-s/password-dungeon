@@ -1,14 +1,16 @@
-export interface L1WasmModule {
+export interface ProgramWasmModule {
+  // The complete WASM linear memory, including the C stack and dynamic heap.
   HEAPU8: Uint8Array;
   ccall: (
     name: string,
     returnType: string | null,
     argumentTypes: string[],
     argumentsList: unknown[],
+    options?: { async?: boolean },
   ) => unknown;
 }
 
-type L1ModuleFactory = (options: {
+type ProgramModuleOptions = {
   locateFile: (fileName: string) => string;
   noInitialRun: boolean;
   print: (text: string) => void;
@@ -16,49 +18,78 @@ type L1ModuleFactory = (options: {
   readLine: () => Promise<string>;
   onProgramMemoryChanged: () => void;
   onProgramSuccess: () => void;
-}) => Promise<L1WasmModule>;
+};
+
+type ProgramModuleFactory = (options: ProgramModuleOptions) => Promise<ProgramWasmModule>;
+type ProgramFactoryName = "createL1Module" | "createBuffer1Module";
+
+interface ProgramConfig {
+  scriptPath: string;
+  factoryName: ProgramFactoryName;
+}
 
 declare global {
   interface Window {
-    createL1Module?: L1ModuleFactory;
+    createL1Module?: ProgramModuleFactory;
+    createBuffer1Module?: ProgramModuleFactory;
   }
 }
 
-let wasmGluePromise: Promise<L1ModuleFactory> | undefined;
+export interface ProgramManagerView {
+  readonly bufferMemory: Uint8Array;
+  readonly isLoading: boolean;
+}
 
-function loadWasmGlue(): Promise<L1ModuleFactory> {
-  if (window.createL1Module) return Promise.resolve(window.createL1Module);
-  if (wasmGluePromise) return wasmGluePromise;
+const wasmGluePromises: Partial<Record<ProgramFactoryName, Promise<ProgramModuleFactory>>> = {};
 
-  wasmGluePromise = new Promise((resolve, reject) => {
+function moduleFactory(name: ProgramFactoryName): ProgramModuleFactory | undefined {
+  return name === "createL1Module" ? window.createL1Module : window.createBuffer1Module;
+}
+
+function loadWasmGlue(config: ProgramConfig): Promise<ProgramModuleFactory> {
+  const existingFactory = moduleFactory(config.factoryName);
+  if (existingFactory) return Promise.resolve(existingFactory);
+
+  const existingPromise = wasmGluePromises[config.factoryName];
+  if (existingPromise) return existingPromise;
+
+  const promise = new Promise<ProgramModuleFactory>((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "/programs/l1.js";
+    script.src = config.scriptPath;
     script.async = true;
     script.onload = () => {
-      if (window.createL1Module) {
-        resolve(window.createL1Module);
+      const factory = moduleFactory(config.factoryName);
+      if (factory) {
+        resolve(factory);
       } else {
-        reject(new Error("The L1 WASM loader did not expose createL1Module."));
+        reject(new Error(`The WASM loader did not expose ${config.factoryName}.`));
       }
     };
-    script.onerror = () => reject(new Error("Failed to load the L1 WASM loader."));
+    script.onerror = () => reject(new Error(`Failed to load the WASM loader at ${config.scriptPath}.`));
     document.head.appendChild(script);
   });
 
-  return wasmGluePromise;
+  wasmGluePromises[config.factoryName] = promise;
+  return promise;
 }
 
-export class L1ProgramManager {
-  readonly bufferMemory = new Uint8Array(10);
+export class ProgramManagerBase implements ProgramManagerView {
   readonly output: string[] = [];
   inputText = "";
   isLoading = false;
   isRunning = false;
   isSuccessful = false;
 
-  private module?: L1WasmModule;
+  private memory = new Uint8Array(0);
+  private module?: ProgramWasmModule;
   private startPromise?: Promise<void>;
   private inputRequests: Array<(input: string) => void> = [];
+
+  constructor(private readonly config: ProgramConfig) {}
+
+  get bufferMemory(): Uint8Array {
+    return this.memory;
+  }
 
   async start(): Promise<void> {
     if (this.startPromise) return this.startPromise;
@@ -83,7 +114,7 @@ export class L1ProgramManager {
   }
 
   private async loadAndRun(): Promise<void> {
-    const moduleFactory = await loadWasmGlue();
+    const moduleFactory = await loadWasmGlue(this.config);
     this.module = await moduleFactory({
       locateFile: (fileName) => `/programs/${fileName}`,
       print: (text) => this.receiveOutput(text),
@@ -101,7 +132,7 @@ export class L1ProgramManager {
     this.syncProgramMemory();
 
     try {
-      await this.module.ccall("main", "number", [], []);
+      await this.module.ccall("main", "number", [], [], { async: true });
     } finally {
       this.isRunning = false;
     }
@@ -122,7 +153,8 @@ export class L1ProgramManager {
 
     const address = this.module.ccall("get_buffer_address", "number", [], []) as number;
     const size = this.module.ccall("get_buffer_size", "number", [], []) as number;
-    this.bufferMemory.fill(0);
-    this.bufferMemory.set(this.module.HEAPU8.slice(address, address + size));
+    const start = Math.max(0, address);
+    const end = Math.min(this.module.HEAPU8.length, start + Math.max(0, size));
+    this.memory = this.module.HEAPU8.slice(start, end);
   }
 }
