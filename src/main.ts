@@ -35,6 +35,7 @@ import {
   updateComputer,
 } from "./computer";
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
+import { drawTitleScreen, isTitleScreenActive, updateTitleScreen } from "./title-screen";
 import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
 const room1: Room = room1Data as unknown as Room;
@@ -286,6 +287,11 @@ function gameInit(): void {
 }
 
 function gameUpdate(): void {
+  if (isTitleScreenActive()) {
+    updateTitleScreen();
+    return;
+  }
+
   if (!isComputerOpen()) updateZoom();
   setCameraPos(vec2(player.position.x, player.position.y));
   transitionCooldown = Math.max(0, transitionCooldown - timeDelta);
@@ -354,6 +360,7 @@ function gameRender(): void {
 
 function gameRenderPost(): void {
   drawDialog(player.position.y);
+  drawTitleScreen();
 }
 
 export function getInventory(): Item[] {
