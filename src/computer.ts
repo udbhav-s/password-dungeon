@@ -8,8 +8,11 @@ import {
   vec2,
   WHITE,
 } from "littlejsengine";
+import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
+import { Room2ProgramManager } from "./programs/room2";
 import room1Source from "../c_levels/room1.c?raw";
+import room2Source from "../c_levels/room2.c?raw";
 import {
   resetMemoryView,
   updateMemoryView,
@@ -40,15 +43,36 @@ interface ComputerTab {
   draw: () => void;
 }
 
+interface ProgramDefinition {
+  createManager: () => ProgramManagerBase;
+  sourceLines: string[];
+  loadingMessage: string;
+}
+
+const roomPrograms: Record<string, ProgramDefinition> = {
+  "room-1": {
+    createManager: () => new Room1ProgramManager(),
+    sourceLines: room1Source.split("\n"),
+    loadingMessage: "loading room1.c...",
+  },
+  "room-2": {
+    createManager: () => new Room2ProgramManager(),
+    sourceLines: room2Source.split("\n"),
+    loadingMessage: "loading room2.c...",
+  },
+};
+
 let computerOpen = false;
-let programManager = new Room1ProgramManager();
+let programManager: ProgramManagerBase = new Room1ProgramManager();
 let activeTabId = "console";
 let codeScrollOffset = 0;
-const room1SourceLines = room1Source.split("\n");
+let sourceLines = room1Source.split("\n");
+let loadingMessage = "loading room1.c...";
+let sourceViewUnlocked = false;
 
 // TODO: update critirea when items are added
 function hasSourceCodeAccess(): boolean {
-  return true;
+  return sourceViewUnlocked;
 }
 
 // TODO: update criteria when the memory scanner item is added
@@ -161,11 +185,20 @@ function handleTerminalKey(event: KeyboardEvent): void {
 
 window.addEventListener("keydown", handleTerminalKey);
 
-export function openComputer(): void {
+export function openComputer(roomId: string, hasSourceView: boolean): void {
+  const program = roomPrograms[roomId];
+  if (!program) {
+    console.warn(`No computer program is configured for ${roomId}.`);
+    return;
+  }
+
   computerOpen = true;
-  programManager = new Room1ProgramManager();
+  programManager = program.createManager();
   activeTabId = "console";
   codeScrollOffset = 0;
+  sourceLines = program.sourceLines;
+  loadingMessage = program.loadingMessage;
+  sourceViewUnlocked = hasSourceView;
   resetMemoryView(programManager);
   void programManager.start();
 }
@@ -184,7 +217,7 @@ function visibleCodeLines(): number {
 }
 
 function maxCodeScrollOffset(): number {
-  return Math.max(0, room1SourceLines.length - visibleCodeLines());
+  return Math.max(0, sourceLines.length - visibleCodeLines());
 }
 
 export function updateComputer(): void {
@@ -246,7 +279,7 @@ function drawTerminal(): void {
   });
 
   if (programManager.isLoading) {
-    drawTerminalText("loading room1.c...", WINDOW_X + TERMINAL_PADDING, firstLineY);
+    drawTerminalText(loadingMessage, WINDOW_X + TERMINAL_PADDING, firstLineY);
     return;
   }
 
@@ -261,7 +294,7 @@ function drawTerminal(): void {
 
 function drawCodeView(): void {
   const firstLineY = contentTop() + TERMINAL_PADDING;
-  const lines = room1SourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
+  const lines = sourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
 
   lines.forEach((line, index) => {
     drawTerminalText(line, WINDOW_X + TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
@@ -275,7 +308,7 @@ function drawSourceScrollbar(): void {
   const trackBottom = WINDOW_Y + WINDOW_HEIGHT - TERMINAL_PADDING;
   const trackHeight = trackBottom - trackTop;
   const visibleLines = visibleCodeLines();
-  const totalLines = room1SourceLines.length;
+  const totalLines = sourceLines.length;
   const maxScroll = maxCodeScrollOffset();
   const thumbHeight = Math.max(
     SOURCE_SCROLLBAR_MIN_THUMB_HEIGHT,

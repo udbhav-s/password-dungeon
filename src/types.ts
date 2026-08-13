@@ -1,7 +1,7 @@
 export const ROOM_WIDTH = 32;
 export const ROOM_HEIGHT = 32;
 
-export type TileType = "space" | "wall" | "door" | "object";
+export type TileType = "space" | "wall" | "door" | "object" | "lava";
 
 export interface Point {
   x: number;

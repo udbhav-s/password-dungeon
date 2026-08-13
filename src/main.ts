@@ -37,7 +37,6 @@ import {
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { drawInventoryBar, drawInventoryPopup, isInventoryOpen, updateInventory } from "./inventory";
 import { drawTitleScreen, isTitleScreenActive, updateTitleScreen } from "./title-screen";
-import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
 const room1: Room = room1Data as unknown as Room;
 const room2: Room = room2Data as unknown as Room;
@@ -90,7 +89,15 @@ function tileAt(room: Room, x: number, y: number): Tile {
 
   const symbol = room.tiles[y][x];
   const type: TileType =
-    symbol === "#" ? "wall" : symbol === "D" ? "door" : symbol === "O" ? "object" : "space";
+    symbol === "#"
+      ? "wall"
+      : symbol === "D"
+        ? "door"
+        : symbol === "O"
+          ? "object"
+          : symbol === "L"
+            ? "lava"
+            : "space";
 
   // Room objects are defined separately from the tile map, but still occupy
   // their grid tile for movement collision.
@@ -106,17 +113,17 @@ function tileAt(room: Room, x: number, y: number): Tile {
   return { type, color: type === "wall" ? room.wallColor : undefined };
 }
 
-function tileToWorld(x: number, y: number): { x: number; y: number } {
+function tileToWorld(room: Room, x: number, y: number): { x: number; y: number } {
   return {
-    x: x - ROOM_WIDTH / 2,
-    y: ROOM_HEIGHT / 2 - y,
+    x: x - room.width / 2,
+    y: room.height / 2 - y,
   };
 }
 
 function playerTile(): Point {
   return {
-    x: Math.floor(player.position.x + ROOM_WIDTH / 2),
-    y: Math.floor(ROOM_HEIGHT / 2 - player.position.y),
+    x: Math.floor(player.position.x + currentRoom.width / 2),
+    y: Math.floor(currentRoom.height / 2 - player.position.y),
   };
 }
 
@@ -150,6 +157,11 @@ function isWallTile(room: Room, x: number, y: number): boolean {
   return true;
 }
 
+function isLavaTile(room: Room, x: number, y: number): boolean {
+  if (x < 0 || x >= room.width || y < 0 || y >= room.height) return false;
+  return tileAt(room, x, y).type === "lava";
+}
+
 function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   const nextRoom = simpleDungeon.rooms[roomId];
   if (!nextRoom) {
@@ -158,15 +170,17 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   }
 
   currentRoom = nextRoom;
+  lockedDoorDialogShown = false;
   roomItems = currentRoom.items
     .filter((item) => !collectedItemIds.has(item.id))
     .map((item) => ({ ...item, position: { ...item.position } }));
 
   const spawn = entry ?? currentRoom.playerStart;
-  const worldPosition = tileToWorld(spawn.x, spawn.y);
+  const worldPosition = tileToWorld(currentRoom, spawn.x, spawn.y);
   player.position = { x: worldPosition.x, y: worldPosition.y };
   previousPlayerTile = playerTile();
   transitionCooldown = 0.25;
+  applyZoom();
   setCameraPos(vec2(player.position.x, player.position.y));
   console.log(`Entered ${currentRoom.name}.`);
 
@@ -177,10 +191,10 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
 
 function overlapsWall(position: { x: number; y: number }): boolean {
   const halfSize = player.size / 2;
-  const left = Math.floor(position.x - halfSize + ROOM_WIDTH / 2);
-  const right = Math.floor(position.x + halfSize + ROOM_WIDTH / 2);
-  const top = Math.floor(ROOM_HEIGHT / 2 - (position.y + halfSize));
-  const bottom = Math.floor(ROOM_HEIGHT / 2 - (position.y - halfSize));
+  const left = Math.floor(position.x - halfSize + currentRoom.width / 2);
+  const right = Math.floor(position.x + halfSize + currentRoom.width / 2);
+  const top = Math.floor(currentRoom.height / 2 - (position.y + halfSize));
+  const bottom = Math.floor(currentRoom.height / 2 - (position.y - halfSize));
 
   for (let y = top; y <= bottom; y += 1) {
     for (let x = left; x <= right; x += 1) {
@@ -208,13 +222,17 @@ function movePlayer(direction: { x: number; y: number }): void {
 }
 
 function findBoundaryDoor(): Door | undefined {
-  const gridX = Math.floor(player.position.x + ROOM_WIDTH / 2);
-  const gridY = Math.floor(ROOM_HEIGHT / 2 - player.position.y);
+  const gridX = Math.floor(player.position.x + currentRoom.width / 2);
+  const gridY = Math.floor(currentRoom.height / 2 - player.position.y);
 
-  if (player.position.y < -ROOM_HEIGHT / 2) return doorAt(currentRoom, gridX, ROOM_HEIGHT - 1);
-  if (player.position.y > ROOM_HEIGHT / 2) return doorAt(currentRoom, gridX, 0);
-  if (player.position.x < -ROOM_WIDTH / 2) return doorAt(currentRoom, 0, gridY);
-  if (player.position.x > ROOM_WIDTH / 2) return doorAt(currentRoom, ROOM_WIDTH - 1, gridY);
+  if (player.position.y < -currentRoom.height / 2) {
+    return doorAt(currentRoom, gridX, currentRoom.height - 1);
+  }
+  if (player.position.y > currentRoom.height / 2) return doorAt(currentRoom, gridX, 0);
+  if (player.position.x < -currentRoom.width / 2) return doorAt(currentRoom, 0, gridY);
+  if (player.position.x > currentRoom.width / 2) {
+    return doorAt(currentRoom, currentRoom.width - 1, gridY);
+  }
   return undefined;
 }
 
@@ -223,13 +241,22 @@ function collectItems(): void {
   const remainingItems: Item[] = [];
 
   for (const item of roomItems) {
-    const itemWorld = tileToWorld(item.position.x, item.position.y);
+    const itemWorld = tileToWorld(currentRoom, item.position.x, item.position.y);
     const distance = Math.hypot(playerWorld.x - itemWorld.x, playerWorld.y - itemWorld.y);
     if (distance < player.size / 2 + 0.35) {
       player.inventory.push(item);
       collectedItemIds.add(item.id);
       console.log(`Picked up ${item.name}.`, item);
-      openDialog(["wow, this is an apple", "you picked it up"]);
+      openDialog(
+        item.id === "source-view"
+          ? [
+              "you got source view!",
+              "having this item gives you a special ability",
+              "you are now able to see the C code that the programs on computers are running",
+              "maybe this is useful..?",
+            ]
+          : ["wow, this is an apple", "you picked it up"],
+      );
     } else {
       remainingItems.push(item);
     }
@@ -264,7 +291,7 @@ function computerInRange(): boolean {
   const computer = currentRoom.objects.find((object) => object.objectType === "computer");
   if (!computer) return false;
 
-  const computerWorld = tileToWorld(computer.position.x, computer.position.y);
+  const computerWorld = tileToWorld(currentRoom, computer.position.x, computer.position.y);
   return Math.hypot(player.position.x - computerWorld.x, player.position.y - computerWorld.y) <= 1.5;
 }
 
@@ -281,7 +308,7 @@ function unlockCurrentRoomDoors(): void {
 }
 
 function applyZoom(): void {
-  setCameraScale(ROOM_WIDTH * zoomLevel);
+  setCameraScale(currentRoom.width * zoomLevel);
 }
 
 function updateZoom(): void {
@@ -326,15 +353,26 @@ function gameUpdate(): void {
   movePlayer(keyDirection());
   collectItems();
 
+  const currentPlayerTile = playerTile();
+  if (isLavaTile(currentRoom, currentPlayerTile.x, currentPlayerTile.y)) {
+    const spawn = tileToWorld(currentRoom, currentRoom.playerStart.x, currentRoom.playerStart.y);
+    player.position = { x: spawn.x, y: spawn.y };
+    previousPlayerTile = playerTile();
+  }
+
   if (isDialogOpen()) return;
 
   if (enteredLockedDoorAdjacentTile()) {
-    openDialog(["hmm.. this door seems locked.", "maybe it needs a password to open?"]);
+    openDialog(
+      currentRoom.id === "room-2"
+        ? ["this one is also locked..."]
+        : ["hmm.. this door seems locked.", "maybe it needs a password to open?"],
+    );
     return;
   }
 
   if (keyWasPressed("Enter") && computerInRange()) {
-    openComputer();
+    openComputer(currentRoom.id, player.inventory.some((item) => item.id === "source-view"));
     return;
   }
 
@@ -354,20 +392,26 @@ function gameRender(): void {
     for (let x = 0; x < currentRoom.width; x += 1) {
       const tile = tileAt(currentRoom, x, y);
       const door = tile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
+      if (tile.type === "lava") {
+        const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
+        drawRect(vec2(position.x, position.y), vec2(1), parseColor("#c0392b"));
+        continue;
+      }
+      if (tile.type === "door" && door?.locked !== true) continue;
       if (tile.type !== "wall" && door?.locked !== true) continue;
-      const position = tileToWorld(x + 0.5, y + 0.5);
+      const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
       const color = door?.locked === true ? "#777777" : currentRoom.wallColor;
       drawRect(vec2(position.x, position.y), vec2(1), parseColor(color));
     }
   }
 
   for (const item of roomItems) {
-    const position = tileToWorld(item.position.x, item.position.y);
+    const position = tileToWorld(currentRoom, item.position.x, item.position.y);
     drawRect(vec2(position.x, position.y), vec2(0.6), parseColor(item.color));
   }
 
   for (const object of currentRoom.objects) {
-    const position = tileToWorld(object.position.x, object.position.y);
+    const position = tileToWorld(currentRoom, object.position.x, object.position.y);
     drawRect(vec2(position.x, position.y), vec2(0.8), parseColor(object.color));
   }
 

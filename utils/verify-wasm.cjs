@@ -116,6 +116,13 @@ async function main() {
       input: "AAAAAAAA",
       expected: { bufferSize: 12, output: ["Enter the password", "Success!"], successful: true },
     });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room2.js",
+      factoryName: "createRoom2Module",
+      input: "supersecret1923",
+      expected: { bufferSize: 20, output: ["Enter password", "success!"], successful: true },
+    });
   } finally {
     server.close();
   }
