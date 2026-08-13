@@ -17,6 +17,7 @@ import {
 import room1Data from "./data/rooms/room-1.json";
 import room2Data from "./data/rooms/room-2.json";
 import room3Data from "./data/rooms/room-3.json";
+import room4Data from "./data/rooms/room-4.json";
 import type {
   Dungeon,
   Door,
@@ -36,12 +37,20 @@ import {
 } from "./computer";
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { drawInventoryBar, drawInventoryPopup, isInventoryOpen, updateInventory } from "./inventory";
+import {
+  consumePressurePuzzleFailure,
+  drawPressurePads,
+  hasPressurePuzzleSucceeded,
+  resetPressurePuzzle,
+  updatePressurePuzzle,
+} from "./pressure-puzzle";
 import { drawTitleScreen, isTitleScreenActive, updateTitleScreen } from "./title-screen";
 import { ROOM_HEIGHT, ROOM_WIDTH } from "./types";
 
 const room1: Room = room1Data as unknown as Room;
 const room2: Room = room2Data as unknown as Room;
 const room3: Room = room3Data as unknown as Room;
+const room4: Room = room4Data as unknown as Room;
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -53,6 +62,22 @@ const simpleDungeon: Dungeon = {
     [room3.id]: room3,
   },
 };
+
+const pressureDungeon: Dungeon = {
+  id: "pressure-dungeon",
+  name: "Pressure Dungeon",
+  startRoom: "room-4",
+  rooms: {
+    [room1.id]: room1,
+    [room2.id]: room2,
+    [room3.id]: room3,
+    [room4.id]: room4,
+  },
+};
+
+// Hot swap: point at pressureDungeon to test the new pressure-pad puzzle room.
+// Swap back to simpleDungeon to return to the original start.
+const activeDungeon: Dungeon = pressureDungeon;
 
 const player: Player = {
   position: vec2(),
@@ -68,7 +93,7 @@ let minZoom = 1.6;
 let maxZoom = 2.5;
 let zoomLevel = 2;
 
-let currentRoom: Room = simpleDungeon.rooms[simpleDungeon.startRoom];
+let currentRoom: Room = activeDungeon.rooms[activeDungeon.startRoom];
 let roomItems: Item[] = [];
 const collectedItemIds = new Set<string>();
 let transitionCooldown = 0;
@@ -139,7 +164,7 @@ function isWallTile(room: Room, x: number, y: number): boolean {
 }
 
 function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
-  const nextRoom = simpleDungeon.rooms[roomId];
+  const nextRoom = activeDungeon.rooms[roomId];
   if (!nextRoom) {
     console.warn(`Room "${roomId}" does not exist.`);
     return;
@@ -149,6 +174,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   roomItems = currentRoom.items
     .filter((item) => !collectedItemIds.has(item.id))
     .map((item) => ({ ...item, position: { ...item.position } }));
+  resetPressurePuzzle(currentRoom);
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(spawn.x, spawn.y);
@@ -283,8 +309,8 @@ function gameInit(): void {
   setCanvasPixelated(true);
   setCanvasClearColor(BLACK);
   applyZoom();
-  loadRoom(simpleDungeon.startRoom);
-  console.log(`Opened ${simpleDungeon.name}. Use WASD or the arrow keys to move, scroll to zoom.`);
+  loadRoom(activeDungeon.startRoom);
+  console.log(`Opened ${activeDungeon.name}. Use WASD or the arrow keys to move, scroll to zoom.`);
 }
 
 function gameUpdate(): void {
@@ -313,6 +339,13 @@ function gameUpdate(): void {
 
   movePlayer(keyDirection());
   collectItems();
+
+  updatePressurePuzzle(currentRoom, playerTile());
+  if (consumePressurePuzzleFailure()) {
+    const spawn = tileToWorld(currentRoom.playerStart.x, currentRoom.playerStart.y);
+    player.position = { x: spawn.x, y: spawn.y };
+  }
+  if (hasPressurePuzzleSucceeded()) unlockCurrentRoomDoors();
 
   if (isDialogOpen()) return;
 
@@ -348,6 +381,8 @@ function gameRender(): void {
       drawRect(vec2(position.x, position.y), vec2(1), parseColor(color));
     }
   }
+
+  drawPressurePads(currentRoom);
 
   for (const item of roomItems) {
     const position = tileToWorld(item.position.x, item.position.y);

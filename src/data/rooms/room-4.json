@@ -1,0 +1,41 @@
+{
+  "id": "room-4",
+  "name": "The Switchback Hall",
+  "width": 32,
+  "height": 5,
+  "wallColor": "#6b5b2f",
+  "playerStart": { "x": 1.5, "y": 2.5 },
+  "tiles": [
+    "################################",
+    "#..............................#",
+    "#....#...#...#...#...#.........D",
+    "#..............................#",
+    "################################"
+  ],
+  "doors": [
+    {
+      "type": "door",
+      "locked": true,
+      "x": 31,
+      "y": 2,
+      "toRoom": "room-1",
+      "entry": { "x": 4.5, "y": 2.5 }
+    }
+  ],
+  "objects": [],
+  "items": [],
+  "pressurePads": [
+    { "id": "pad-4-1", "pairIndex": 4, "value": 1, "position": { "x": 5, "y": 1 } },
+    { "id": "pad-4-0", "pairIndex": 4, "value": 0, "position": { "x": 5, "y": 3 } },
+    { "id": "pad-3-1", "pairIndex": 3, "value": 1, "position": { "x": 9, "y": 1 } },
+    { "id": "pad-3-0", "pairIndex": 3, "value": 0, "position": { "x": 9, "y": 3 } },
+    { "id": "pad-2-1", "pairIndex": 2, "value": 1, "position": { "x": 13, "y": 1 } },
+    { "id": "pad-2-0", "pairIndex": 2, "value": 0, "position": { "x": 13, "y": 3 } },
+    { "id": "pad-1-1", "pairIndex": 1, "value": 1, "position": { "x": 17, "y": 1 } },
+    { "id": "pad-1-0", "pairIndex": 1, "value": 0, "position": { "x": 17, "y": 3 } },
+    { "id": "pad-0-1", "pairIndex": 0, "value": 1, "position": { "x": 21, "y": 1 } },
+    { "id": "pad-0-0", "pairIndex": 0, "value": 0, "position": { "x": 21, "y": 3 } }
+  ],
+  "pressureButton": { "id": "submit-button", "position": { "x": 29, "y": 2 } },
+  "pressureTarget": 21
+}

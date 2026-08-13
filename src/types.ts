@@ -41,6 +41,20 @@ export interface Item {
   position: Point;
 }
 
+export interface PressurePad {
+  id: string;
+  /// Bit position within the target byte; pads sharing a pairIndex are the two
+  /// plates of one on/off switch (one plate per possible bit value).
+  pairIndex: number;
+  value: 0 | 1;
+  position: Point;
+}
+
+export interface PressureButton {
+  id: string;
+  position: Point;
+}
+
 export interface Player {
   position: Point;
   size: number;
@@ -69,6 +83,10 @@ export interface Room {
   objects: RoomObject[];
   items: Item[];
   playerStart: Point;
+  pressurePads?: PressurePad[];
+  pressureButton?: PressureButton;
+  /// Bit pattern the pads must be set to (bit N == pad pairIndex N's active value) for the button to unlock doors.
+  pressureTarget?: number;
 }
 
 export interface Dungeon {

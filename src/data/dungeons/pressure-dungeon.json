@@ -1,0 +1,6 @@
+{
+  "id": "pressure-dungeon",
+  "name": "Pressure Dungeon",
+  "startRoom": "room-4",
+  "roomIds": ["room-4", "room-1", "room-2", "room-3"]
+}
