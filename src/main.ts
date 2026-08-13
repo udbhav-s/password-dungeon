@@ -286,7 +286,7 @@ function gameInit(): void {
 }
 
 function gameUpdate(): void {
-  updateZoom();
+  if (!isComputerOpen()) updateZoom();
   setCameraPos(vec2(player.position.x, player.position.y));
   transitionCooldown = Math.max(0, transitionCooldown - timeDelta);
 
