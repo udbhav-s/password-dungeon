@@ -28,6 +28,11 @@ import { Room5AProgramManager } from "./programs/room5a";
 import { Room6ProgramManager } from "./programs/room6";
 import { Room10ProgramManager } from "./programs/room10";
 import type { Item } from "./types";
+import {
+  itemIconFrame,
+  ITEM_SPRITE_FRAME_SIZE,
+  ITEM_SPRITE_TEXTURE_INDEX,
+} from "./item-icons";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
 const CANVAS_PIXELS = 1024;
@@ -584,14 +589,20 @@ function drawUsableItems(): void {
       false,
       true,
     );
-    drawRect(
-      vec2(centerX, HUD_CENTER_Y),
-      vec2(ITEM_ICON_SIZE),
-      parseColor(item.color),
-      0,
-      false,
-      true,
-    );
+    const frame = itemIconFrame(item.id);
+    if (frame !== undefined) {
+      drawTile(
+        vec2(centerX, HUD_CENTER_Y),
+        vec2(ITEM_ICON_SIZE),
+        tile(frame, ITEM_SPRITE_FRAME_SIZE, ITEM_SPRITE_TEXTURE_INDEX),
+        WHITE,
+        0,
+        false,
+        undefined,
+        false,
+        true,
+      );
+    }
   }
 }
 

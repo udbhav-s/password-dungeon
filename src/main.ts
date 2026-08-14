@@ -51,6 +51,11 @@ import {
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { drawInventoryBar, drawInventoryPopup, isInventoryOpen, updateInventory } from "./inventory";
 import {
+  itemIconFrame,
+  ITEM_SPRITE_FRAME_SIZE,
+  ITEM_SPRITE_TEXTURE_INDEX,
+} from "./item-icons";
+import {
   drawTitleScreen,
   isTitleScreenActive,
   setTitleScreenSkipped,
@@ -139,6 +144,9 @@ const PLAYER_SPRITE_FRAME_SIZE = 64;
 const PLAYER_SPRITE_TEXTURE_INDEX = 1;
 const PLAYER_SPRITE_DRAW_SIZE = 1.2;
 const PLAYER_WALK_FRAME_DURATION = 0.16;
+const WORLD_SPRITE_FRAME_SIZE = 64;
+const COMPUTER_SPRITE_TEXTURE_INDEX = 3;
+const LOCKED_DOOR_SPRITE_TEXTURE_INDEX = 4;
 // Fixed for now; a future player-progression system can raise/lower these.
 let minZoom = 1.6;
 let maxZoom = 2.5;
@@ -672,18 +680,27 @@ function gameRender(): void {
 
   for (let y = 0; y < currentRoom.height; y += 1) {
     for (let x = 0; x < currentRoom.width; x += 1) {
-      const tile = tileAt(currentRoom, x, y);
-      const door = tile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
-      if (tile.type === "lava") {
+      const roomTile = tileAt(currentRoom, x, y);
+      const door = roomTile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
+      const isLockedDoor = door?.locked === true;
+      if (roomTile.type === "lava") {
         const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
         drawRect(vec2(position.x, position.y), vec2(1), parseColor("#c0392b"));
         continue;
       }
-      if (tile.type === "door" && door?.locked !== true) continue;
-      if (tile.type !== "wall" && door?.locked !== true) continue;
+      if (roomTile.type === "door" && !isLockedDoor) continue;
+      if (roomTile.type !== "wall" && !isLockedDoor) continue;
       const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
-      const color = door?.locked === true ? "#777777" : currentRoom.wallColor;
-      drawRect(vec2(position.x, position.y), vec2(1), parseColor(color));
+      if (isLockedDoor) {
+        drawTile(
+          vec2(position.x, position.y),
+          vec2(1),
+          tile(0, WORLD_SPRITE_FRAME_SIZE, LOCKED_DOOR_SPRITE_TEXTURE_INDEX),
+          WHITE,
+        );
+        continue;
+      }
+      drawRect(vec2(position.x, position.y), vec2(1), parseColor(currentRoom.wallColor));
     }
   }
 
@@ -693,11 +710,28 @@ function gameRender(): void {
 
   for (const item of roomItems) {
     const position = tileToWorld(currentRoom, item.position.x, item.position.y);
-    drawRect(vec2(position.x, position.y), vec2(0.6), parseColor(item.color));
+    const frame = itemIconFrame(item.id);
+    if (frame !== undefined) {
+      drawTile(
+        vec2(position.x, position.y),
+        vec2(0.7),
+        tile(frame, ITEM_SPRITE_FRAME_SIZE, ITEM_SPRITE_TEXTURE_INDEX),
+        WHITE,
+      );
+    }
   }
 
   for (const object of currentRoom.objects) {
     const position = tileToWorld(currentRoom, object.position.x, object.position.y);
+    if (object.objectType === "computer") {
+      drawTile(
+        vec2(position.x, position.y),
+        vec2(1),
+        tile(0, WORLD_SPRITE_FRAME_SIZE, COMPUTER_SPRITE_TEXTURE_INDEX),
+        WHITE,
+      );
+      continue;
+    }
     drawRect(vec2(position.x, position.y), vec2(0.8), parseColor(object.color));
   }
 
@@ -734,5 +768,11 @@ void engineInit(
   () => {},
   gameRender,
   gameRenderPost,
-  ["/assets/password-dungeon-typing.png", "/assets/character.png"],
+  [
+    "/assets/password-dungeon-typing.png",
+    "/assets/character.png",
+    "/assets/items.png",
+    "/assets/computer.png",
+    "/assets/locked door.png",
+  ],
 );
