@@ -1,54 +1,77 @@
 import {
   Color,
   drawRect,
+  drawTile,
   engineImageFont,
+  mousePosScreen,
   mouseWasPressed,
   mouseWheel,
-  mousePosScreen,
+  tile,
   vec2,
   WHITE,
 } from "littlejsengine";
+import room1Source from "../c_levels/room1.c?raw";
+import room2Source from "../c_levels/room2.c?raw";
+import room3Source from "../c_levels/room3.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
 import { Room3ProgramManager } from "./programs/room3";
-import room1Source from "../c_levels/room1.c?raw";
-import room2Source from "../c_levels/room2.c?raw";
-import room3Source from "../c_levels/room3.c?raw";
-import {
-  resetMemoryView,
-  updateMemoryView,
-  drawMemoryView,
-} from "./memory-view";
+import type { Item } from "./types";
+import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
 const CANVAS_PIXELS = 1024;
-const WINDOW_X = 64;
-const WINDOW_Y = 64;
-const WINDOW_WIDTH = CANVAS_PIXELS - WINDOW_X * 2;
-const WINDOW_HEIGHT = CANVAS_PIXELS - WINDOW_Y * 2;
-const STATUS_BAR_HEIGHT = 48;
-const CLOSE_BUTTON_SIZE = 40;
+const TITLE_BAR_HEIGHT = 48;
+const TITLE_BAR_CENTER_Y = TITLE_BAR_HEIGHT / 2;
+const HUD_HEIGHT = 160;
+const HUD_TOP = CANVAS_PIXELS - HUD_HEIGHT;
+const HUD_CENTER_Y = HUD_TOP + HUD_HEIGHT / 2;
 const TERMINAL_PADDING = 32;
 const TERMINAL_TEXT_SIZE = 14;
 const TERMINAL_LINE_HEIGHT = 24;
-const TERMINAL_MAX_LINES = 24;
 const SOURCE_SCROLLBAR_WIDTH = 8;
 const SOURCE_SCROLLBAR_MIN_THUMB_HEIGHT = 24;
 
+const SPRITE_FRAME_SIZE = 64;
+const SPRITE_PANEL_SIZE = 144;
+const SPRITE_DRAW_SIZE = 128;
+const SPRITE_CENTER_X = 80;
+const CLOSE_BUTTON_SIZE = 40;
+const CLOSE_BUTTON_X = CANVAS_PIXELS - CLOSE_BUTTON_SIZE / 2 - 4;
+
+const TAB_FONT_SIZE = 18;
+const TAB_PADDING_X = 16;
+const TAB_GAP = 4;
+const TAB_START_X = 16;
+
+const ITEM_PANEL_SIZE = 112;
+const ITEM_ICON_SIZE = 76;
+const ITEM_PANEL_GAP = 16;
+const ITEM_PANEL_RIGHT = 16;
+
+type ComputerView = "console" | "source" | "memory";
+
 interface ComputerTab {
-  id: string;
+  id: ComputerView;
   label: string;
   isVisible: () => boolean;
-  update?: () => void;
-  onWheel?: (direction: number) => void;
-  onClick?: (x: number, y: number) => void;
-  draw: () => void;
 }
 
 interface ProgramDefinition {
   createManager: () => ProgramManagerBase;
   sourceLines: string[];
   loadingMessage: string;
+}
+
+interface UsableItemLayout {
+  item: Item;
+  centerX: number;
+}
+
+interface TabLayout {
+  tab: ComputerTab;
+  centerX: number;
+  width: number;
 }
 
 const roomPrograms: Record<string, ProgramDefinition> = {
@@ -71,48 +94,23 @@ const roomPrograms: Record<string, ProgramDefinition> = {
 
 let computerOpen = false;
 let programManager: ProgramManagerBase = new Room1ProgramManager();
-let activeTabId = "console";
+let activeView: ComputerView = "console";
 let codeScrollOffset = 0;
 let sourceLines = room1Source.split("\n");
 let loadingMessage = "loading room1.c...";
-let sourceViewUnlocked = false;
+let usableItems: Item[] = [];
+let typingFrame = 0;
+const typingKeys = new Set<string>();
 
-// TODO: update critirea when items are added
-function hasSourceCodeAccess(): boolean {
-  return sourceViewUnlocked;
-}
-
-// TODO: update criteria when the memory scanner item is added
-function hasMemoryViewerAccess(): boolean {
-  return true;
-}
-
-// New tabs can be added here — each gets its own visibility condition and draw function.
 const tabs: ComputerTab[] = [
-  { id: "console", label: "Console", isVisible: () => true, draw: () => drawTerminal() },
+  { id: "console", label: "Console", isVisible: () => true },
   {
     id: "source",
     label: "View Source",
-    isVisible: hasSourceCodeAccess,
-    onWheel: handleSourceWheel,
-    draw: () => drawCodeView(),
+    isVisible: () => usableItems.some((item) => item.id === "source-view"),
   },
-  {
-    id: "memory",
-    label: "Memory",
-    isVisible: hasMemoryViewerAccess,
-    update: updateMemoryView,
-    draw: drawMemoryView,
-  },
+  { id: "memory", label: "Memory", isVisible: () => true },
 ];
-
-function visibleTabs(): ComputerTab[] {
-  return tabs.filter((tab) => tab.isVisible());
-}
-
-function currentTab(): ComputerTab | undefined {
-  return visibleTabs().find((tab) => tab.id === activeTabId);
-}
 
 function parseColor(hex: string): Color {
   const value = hex.replace("#", "");
@@ -138,25 +136,11 @@ function isInside(
   );
 }
 
-function closeButtonPosition(): { x: number; y: number } {
-  return {
-    x: WINDOW_X + WINDOW_WIDTH - CLOSE_BUTTON_SIZE / 2 - 4,
-    y: WINDOW_Y + STATUS_BAR_HEIGHT / 2,
-  };
+function visibleTabs(): ComputerTab[] {
+  return tabs.filter((tab) => tab.isVisible());
 }
 
-const TAB_FONT_SIZE = 18;
-const TAB_PADDING_X = 16;
-const TAB_GAP = 4;
-const TAB_START_X = WINDOW_X + 20;
-
-interface TabLayout {
-  tab: ComputerTab;
-  centerX: number;
-  width: number;
-}
-
-function tabLayout(): TabLayout[] {
+function tabLayouts(): TabLayout[] {
   let x = TAB_START_X;
   return visibleTabs().map((tab) => {
     const width = tab.label.length * TAB_FONT_SIZE + TAB_PADDING_X * 2;
@@ -166,8 +150,31 @@ function tabLayout(): TabLayout[] {
   });
 }
 
-function contentTop(): number {
-  return WINDOW_Y + STATUS_BAR_HEIGHT;
+function setActiveView(view: ComputerView): void {
+  activeView = view;
+  if (view !== "console") resetTypingFrame();
+}
+
+function usableItemLayouts(): UsableItemLayout[] {
+  return usableItems.map((item, index) => ({
+    item,
+    centerX:
+      CANVAS_PIXELS -
+      ITEM_PANEL_RIGHT -
+      ITEM_PANEL_SIZE / 2 -
+      index * (ITEM_PANEL_SIZE + ITEM_PANEL_GAP),
+  }));
+}
+
+function setTypingFrame(event: KeyboardEvent): void {
+  typingKeys.add(event.code || event.key);
+  typingFrame = 1 + Math.floor(Math.random() * 4);
+}
+
+function resetTypingFrame(event?: KeyboardEvent): void {
+  if (event) typingKeys.delete(event.code || event.key);
+  else typingKeys.clear();
+  if (typingKeys.size === 0) typingFrame = 0;
 }
 
 function appendTerminalCharacter(character: string): void {
@@ -175,8 +182,8 @@ function appendTerminalCharacter(character: string): void {
   programManager.appendInputCharacter(character);
 }
 
-function handleTerminalKey(event: KeyboardEvent): void {
-  if (!computerOpen || !programManager.isRunning || activeTabId !== "console") return;
+function handleTerminalKeyDown(event: KeyboardEvent): void {
+  if (!computerOpen || !programManager.isRunning || activeView !== "console") return;
 
   if (event.key === "Enter") {
     event.preventDefault();
@@ -187,12 +194,26 @@ function handleTerminalKey(event: KeyboardEvent): void {
   } else if (event.key.length === 1) {
     event.preventDefault();
     appendTerminalCharacter(event.key);
+  } else {
+    return;
   }
+
+  setTypingFrame(event);
 }
 
-window.addEventListener("keydown", handleTerminalKey);
+function handleTerminalKeyUp(event: KeyboardEvent): void {
+  resetTypingFrame(event);
+}
 
-export function openComputer(roomId: string, hasSourceView: boolean): void {
+window.addEventListener("keydown", handleTerminalKeyDown);
+window.addEventListener("keyup", handleTerminalKeyUp);
+
+function closeComputer(): void {
+  computerOpen = false;
+  resetTypingFrame();
+}
+
+export function openComputer(roomId: string, inventory: readonly Item[]): void {
   const program = roomPrograms[roomId];
   if (!program) {
     console.warn(`No computer program is configured for ${roomId}.`);
@@ -201,11 +222,12 @@ export function openComputer(roomId: string, hasSourceView: boolean): void {
 
   computerOpen = true;
   programManager = program.createManager();
-  activeTabId = "console";
+  activeView = "console";
   codeScrollOffset = 0;
   sourceLines = program.sourceLines;
   loadingMessage = program.loadingMessage;
-  sourceViewUnlocked = hasSourceView;
+  usableItems = inventory.filter((item) => item.id === "source-view");
+  resetTypingFrame();
   resetMemoryView(programManager);
   void programManager.start();
 }
@@ -224,58 +246,77 @@ export function getRoom3BallSize(): number | undefined {
 }
 
 function visibleCodeLines(): number {
-  const contentHeight = WINDOW_Y + WINDOW_HEIGHT - TERMINAL_PADDING - contentTop() - TERMINAL_PADDING;
-  return Math.max(1, Math.floor(contentHeight / TERMINAL_LINE_HEIGHT));
+  return Math.max(
+    1,
+    Math.floor(
+      (HUD_TOP - TITLE_BAR_HEIGHT - TERMINAL_PADDING * 2) / TERMINAL_LINE_HEIGHT,
+    ),
+  );
 }
 
 function maxCodeScrollOffset(): number {
   return Math.max(0, sourceLines.length - visibleCodeLines());
 }
 
+function handleSourceWheel(direction: number): void {
+  codeScrollOffset = Math.min(maxCodeScrollOffset(), Math.max(0, codeScrollOffset + direction));
+}
+
 export function updateComputer(): void {
   if (!computerOpen) return;
 
-  const closeButton = closeButtonPosition();
-  if (
-    mouseWasPressed(0) &&
-    isInside(
-      mousePosScreen.x,
-      mousePosScreen.y,
-      closeButton.x,
-      closeButton.y,
-      CLOSE_BUTTON_SIZE,
-      STATUS_BAR_HEIGHT,
-    )
-  ) {
-    computerOpen = false;
-    return;
-  }
-
   if (mouseWasPressed(0)) {
-    const statusBarCenterY = WINDOW_Y + STATUS_BAR_HEIGHT / 2;
-    let hitTab = false;
-    tabLayout().forEach(({ tab, centerX, width }) => {
-      if (isInside(mousePosScreen.x, mousePosScreen.y, centerX, statusBarCenterY, width, STATUS_BAR_HEIGHT)) {
-        activeTabId = tab.id;
-        hitTab = true;
-      }
-    });
+    if (
+      isInside(
+        mousePosScreen.x,
+        mousePosScreen.y,
+        CLOSE_BUTTON_X,
+        TITLE_BAR_CENTER_Y,
+        CLOSE_BUTTON_SIZE,
+        TITLE_BAR_HEIGHT,
+      )
+    ) {
+      closeComputer();
+      return;
+    }
 
-    if (!hitTab) {
-      currentTab()?.onClick?.(mousePosScreen.x, mousePosScreen.y);
+    for (const { tab, centerX, width } of tabLayouts()) {
+      if (
+        isInside(
+          mousePosScreen.x,
+          mousePosScreen.y,
+          centerX,
+          TITLE_BAR_CENTER_Y,
+          width,
+          TITLE_BAR_HEIGHT,
+        )
+      ) {
+        setActiveView(tab.id);
+        break;
+      }
+    }
+
+    for (const { item, centerX } of usableItemLayouts()) {
+      if (
+        isInside(
+          mousePosScreen.x,
+          mousePosScreen.y,
+          centerX,
+          HUD_CENTER_Y,
+          ITEM_PANEL_SIZE,
+          ITEM_PANEL_SIZE,
+        ) && item.id === "source-view"
+      ) {
+        setActiveView("source");
+        break;
+      }
     }
   }
 
-  if (mouseWheel !== 0) {
-    const direction = mouseWheel > 0 ? 1 : -1;
-    currentTab()?.onWheel?.(direction);
+  if (activeView === "source" && mouseWheel !== 0) {
+    handleSourceWheel(mouseWheel > 0 ? 1 : -1);
   }
-
-  currentTab()?.update?.();
-}
-
-function handleSourceWheel(direction: number): void {
-  codeScrollOffset = Math.min(maxCodeScrollOffset(), Math.max(0, codeScrollOffset + direction));
+  if (activeView === "memory") updateMemoryView();
 }
 
 function drawTerminalText(text: string, x: number, y: number, center = false): void {
@@ -283,41 +324,49 @@ function drawTerminalText(text: string, x: number, y: number, center = false): v
 }
 
 function drawTerminal(): void {
-  const firstLineY = contentTop() + TERMINAL_PADDING;
-  const visibleOutput = programManager.output.slice(-TERMINAL_MAX_LINES);
+  const firstLineY = TITLE_BAR_HEIGHT + TERMINAL_PADDING;
+  const inputY = HUD_TOP - TERMINAL_PADDING;
+  const terminalLineCapacity = Math.max(
+    1,
+    Math.floor((inputY - firstLineY) / TERMINAL_LINE_HEIGHT) - 1,
+  );
+  const visibleOutput = programManager.output.slice(-terminalLineCapacity);
 
   visibleOutput.forEach((line, index) => {
-    drawTerminalText(line, WINDOW_X + TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
+    drawTerminalText(line, TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
   });
 
   if (programManager.isLoading) {
-    drawTerminalText(loadingMessage, WINDOW_X + TERMINAL_PADDING, firstLineY);
+    drawTerminalText(loadingMessage, TERMINAL_PADDING, firstLineY);
     return;
   }
 
   if (!programManager.isRunning) {
-    drawTerminalText("[program ended]", WINDOW_X + TERMINAL_PADDING, firstLineY + visibleOutput.length * TERMINAL_LINE_HEIGHT);
+    drawTerminalText(
+      "[program ended]",
+      TERMINAL_PADDING,
+      firstLineY + visibleOutput.length * TERMINAL_LINE_HEIGHT,
+    );
     return;
   }
 
-  const inputY = WINDOW_Y + WINDOW_HEIGHT - TERMINAL_PADDING;
-  drawTerminalText(`> ${programManager.inputText}_`, WINDOW_X + TERMINAL_PADDING, inputY);
+  drawTerminalText(`> ${programManager.inputText}_`, TERMINAL_PADDING, inputY);
 }
 
 function drawCodeView(): void {
-  const firstLineY = contentTop() + TERMINAL_PADDING;
+  const firstLineY = TITLE_BAR_HEIGHT + TERMINAL_PADDING;
   const lines = sourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
 
   lines.forEach((line, index) => {
-    drawTerminalText(line, WINDOW_X + TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
+    drawTerminalText(line, TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
   });
 
   drawSourceScrollbar();
 }
 
 function drawSourceScrollbar(): void {
-  const trackTop = contentTop() + TERMINAL_PADDING;
-  const trackBottom = WINDOW_Y + WINDOW_HEIGHT - TERMINAL_PADDING;
+  const trackTop = TITLE_BAR_HEIGHT + TERMINAL_PADDING;
+  const trackBottom = HUD_TOP - TERMINAL_PADDING;
   const trackHeight = trackBottom - trackTop;
   const visibleLines = visibleCodeLines();
   const totalLines = sourceLines.length;
@@ -328,7 +377,7 @@ function drawSourceScrollbar(): void {
   );
   const thumbTravel = trackHeight - thumbHeight;
   const thumbOffset = maxScroll === 0 ? 0 : (codeScrollOffset / maxScroll) * thumbTravel;
-  const scrollbarX = WINDOW_X + WINDOW_WIDTH - TERMINAL_PADDING / 2;
+  const scrollbarX = CANVAS_PIXELS - TERMINAL_PADDING / 2;
 
   drawRect(
     vec2(scrollbarX, trackTop + trackHeight / 2),
@@ -348,66 +397,141 @@ function drawSourceScrollbar(): void {
   );
 }
 
+function drawTypingSprite(): void {
+  drawRect(
+    vec2(SPRITE_CENTER_X, HUD_CENTER_Y),
+    vec2(SPRITE_PANEL_SIZE),
+    parseColor("#151515"),
+    0,
+    false,
+    true,
+  );
+  drawTile(
+    vec2(SPRITE_CENTER_X, HUD_CENTER_Y),
+    vec2(SPRITE_DRAW_SIZE),
+    tile(typingFrame, SPRITE_FRAME_SIZE),
+    WHITE,
+    0,
+    false,
+    undefined,
+    false,
+    true,
+  );
+}
+
+function drawCloseButton(): void {
+  drawRect(
+    vec2(CLOSE_BUTTON_X, TITLE_BAR_CENTER_Y),
+    vec2(CLOSE_BUTTON_SIZE, TITLE_BAR_HEIGHT - 8),
+    parseColor("#b83b3b"),
+    0,
+    false,
+    true,
+  );
+  engineImageFont.drawTextScreen(
+    "x",
+    vec2(CLOSE_BUTTON_X, TITLE_BAR_CENTER_Y),
+    20,
+    true,
+    WHITE,
+    false,
+  );
+}
+
 function drawTabs(): void {
-  const statusBarCenterY = WINDOW_Y + STATUS_BAR_HEIGHT / 2;
-  tabLayout().forEach(({ tab, centerX, width }) => {
-    const isActive = tab.id === activeTabId;
-    if (isActive) {
+  for (const { tab, centerX, width } of tabLayouts()) {
+    if (tab.id === activeView) {
       drawRect(
-        vec2(centerX, statusBarCenterY),
-        vec2(width - 4, STATUS_BAR_HEIGHT - 8),
+        vec2(centerX, TITLE_BAR_CENTER_Y),
+        vec2(width - 4, TITLE_BAR_HEIGHT - 8),
         parseColor("#4a2568"),
         0,
         false,
         true,
       );
     }
-    engineImageFont.drawTextScreen(tab.label, vec2(centerX, statusBarCenterY), TAB_FONT_SIZE, true, WHITE, false);
-  });
+    engineImageFont.drawTextScreen(
+      tab.label,
+      vec2(centerX, TITLE_BAR_CENTER_Y),
+      TAB_FONT_SIZE,
+      true,
+      WHITE,
+      false,
+    );
+  }
 }
 
-export function drawComputer(): void {
-  if (!computerOpen) return;
-
-  const windowCenterX = WINDOW_X + WINDOW_WIDTH / 2;
-  const windowCenterY = WINDOW_Y + WINDOW_HEIGHT / 2;
-  const statusBarCenterY = WINDOW_Y + STATUS_BAR_HEIGHT / 2;
-  const closeButton = closeButtonPosition();
-
+function drawTitleBar(): void {
   drawRect(
-    vec2(windowCenterX, windowCenterY),
-    vec2(WINDOW_WIDTH, WINDOW_HEIGHT),
-    parseColor("#080808"),
-    0,
-    false,
-    true,
-  );
-  drawRect(
-    vec2(windowCenterX, statusBarCenterY),
-    vec2(WINDOW_WIDTH, STATUS_BAR_HEIGHT),
+    vec2(CANVAS_PIXELS / 2, TITLE_BAR_CENTER_Y),
+    vec2(CANVAS_PIXELS, TITLE_BAR_HEIGHT),
     parseColor("#6d3b9c"),
     0,
     false,
     true,
   );
+  drawTabs();
+  drawCloseButton();
+}
+
+function drawUsableItems(): void {
+  for (const { item, centerX } of usableItemLayouts()) {
+    const isActive = item.id === "source-view" && activeView === "source";
+    drawRect(
+      vec2(centerX, HUD_CENTER_Y),
+      vec2(ITEM_PANEL_SIZE),
+      parseColor(isActive ? "#6d3b9c" : "#151515"),
+      0,
+      false,
+      true,
+    );
+    drawRect(
+      vec2(centerX, HUD_CENTER_Y),
+      vec2(ITEM_ICON_SIZE),
+      parseColor(item.color),
+      0,
+      false,
+      true,
+    );
+  }
+}
+
+function drawHud(): void {
   drawRect(
-    vec2(closeButton.x, closeButton.y),
-    vec2(CLOSE_BUTTON_SIZE, STATUS_BAR_HEIGHT - 8),
-    parseColor("#b83b3b"),
+    vec2(CANVAS_PIXELS / 2, HUD_CENTER_Y),
+    vec2(CANVAS_PIXELS, HUD_HEIGHT),
+    parseColor("#25222a"),
+    0,
+    false,
+    true,
+  );
+  drawRect(
+    vec2(CANVAS_PIXELS / 2, HUD_TOP),
+    vec2(CANVAS_PIXELS, 4),
+    parseColor("#6d3b9c"),
+    0,
+    false,
+    true,
+  );
+  drawTypingSprite();
+  drawUsableItems();
+}
+
+export function drawComputer(): void {
+  if (!computerOpen) return;
+
+  drawRect(
+    vec2(CANVAS_PIXELS / 2, (TITLE_BAR_HEIGHT + HUD_TOP) / 2),
+    vec2(CANVAS_PIXELS, HUD_TOP - TITLE_BAR_HEIGHT),
+    parseColor("#080808"),
     0,
     false,
     true,
   );
 
-  engineImageFont.drawTextScreen(
-    "x",
-    vec2(closeButton.x, closeButton.y),
-    20,
-    true,
-    WHITE,
-    false,
-  );
-  drawTabs();
-  const tab = currentTab() ?? visibleTabs()[0];
-  tab?.draw();
+  if (activeView === "source") drawCodeView();
+  else if (activeView === "memory") drawMemoryView();
+  else drawTerminal();
+  drawTitleBar();
+  drawHud();
 }

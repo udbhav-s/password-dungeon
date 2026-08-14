@@ -67,13 +67,5 @@
       "position": { "x": 24.5, "y": 7.5 }
     }
   ],
-  "items": [
-    {
-      "id": "apple-3",
-      "name": "Apple",
-      "description": "A bright green apple.",
-      "color": "#3ff340",
-      "position": { "x": 2.5, "y": 3.5 }
-    }
-  ]
+  "items": []
 }

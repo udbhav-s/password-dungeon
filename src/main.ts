@@ -56,6 +56,7 @@ import { Room3Interaction } from "./room-interactions/room3";
 const DEBUG_MODE = false;
 const DEBUG_START_ROOM = "room-3";
 const DEBUG_ENABLED_ITEM_IDS = ["source-view"];
+const DEBUG_CONSOLE = false;
 
 const room1: Room = room1Data as unknown as Room;
 const room2: Room = room2Data as unknown as Room;
@@ -103,7 +104,7 @@ let debugOverlayVisible = false;
 function applyDebugConfiguration(): void {
   player.inventory.length = 0;
   collectedItemIds.clear();
-  if (!DEBUG_MODE) return;
+  if (!DEBUG_MODE && !DEBUG_CONSOLE) return;
 
   const availableItems = Object.values(simpleDungeon.rooms).flatMap((room) => room.items);
   for (const itemId of DEBUG_ENABLED_ITEM_IDS) {
@@ -298,7 +299,7 @@ function collectItems(): void {
               "you are now able to see the C code that the programs on computers are running",
               "maybe this is useful..?",
             ]
-          : ["wow, this is an apple", "you picked it up"],
+          : [`you got ${item.name.toLowerCase()}!`],
       );
     } else {
       remainingItems.push(item);
@@ -365,9 +366,12 @@ function gameInit(): void {
   setCanvasPixelated(true);
   setCanvasClearColor(BLACK);
   applyZoom();
-  setTitleScreenSkipped(DEBUG_MODE);
+  const debugStartupEnabled = DEBUG_MODE || DEBUG_CONSOLE;
+  setTitleScreenSkipped(debugStartupEnabled);
   applyDebugConfiguration();
-  loadRoom(DEBUG_MODE ? DEBUG_START_ROOM : simpleDungeon.startRoom);
+  const startRoomId = debugStartupEnabled ? DEBUG_START_ROOM : simpleDungeon.startRoom;
+  loadRoom(startRoomId);
+  if (DEBUG_CONSOLE) openComputer(startRoomId, player.inventory);
   console.log(`Opened ${simpleDungeon.name}. Use WASD or the arrow keys to move, scroll to zoom.`);
 }
 
@@ -428,7 +432,7 @@ function gameUpdate(): void {
   }
 
   if (keyWasPressed("Enter") && computerInRange()) {
-    openComputer(currentRoom.id, player.inventory.some((item) => item.id === "source-view"));
+    openComputer(currentRoom.id, player.inventory);
     return;
   }
 
@@ -542,4 +546,11 @@ declare global {
 
 globalThis.getInventory = getInventory;
 
-void engineInit(gameInit, gameUpdate, () => {}, gameRender, gameRenderPost);
+void engineInit(
+  gameInit,
+  gameUpdate,
+  () => {},
+  gameRender,
+  gameRenderPost,
+  ["/assets/password-dungeon-typing.png"],
+);

@@ -2,11 +2,9 @@ import { Color, engineImageFont, timeDelta, vec2 } from "littlejsengine";
 import { ProgramManagerView } from "./program-manager-base";
 
 const CANVAS_PIXELS = 1024;
-const WINDOW_X = 64;
-const WINDOW_Y = 64;
-const WINDOW_WIDTH = CANVAS_PIXELS - WINDOW_X * 2;
-const WINDOW_HEIGHT = CANVAS_PIXELS - WINDOW_Y * 2;
-const STATUS_BAR_HEIGHT = 48;
+const TITLE_BAR_HEIGHT = 48;
+const HUD_HEIGHT = 160;
+const CONTENT_BOTTOM = CANVAS_PIXELS - HUD_HEIGHT;
 const TERMINAL_PADDING = 32;
 
 const MEMORY_TEXT_SIZE = 14;
@@ -37,7 +35,7 @@ const NONZERO_COLOR = parseColor("#c8c8c8");
 const HOT_GOLD = parseColor("#ffe680");
 
 function contentTop(): number {
-  return WINDOW_Y + STATUS_BAR_HEIGHT;
+  return TITLE_BAR_HEIGHT;
 }
 
 function payloadY(): number {
@@ -45,7 +43,7 @@ function payloadY(): number {
 }
 
 function byteX(index: number): number {
-  return WINDOW_X + TERMINAL_PADDING + index * (MEMORY_TEXT_SIZE * 3);
+  return TERMINAL_PADDING + index * (MEMORY_TEXT_SIZE * 3);
 }
 
 function drawText(text: string, x: number, y: number, color: Color): void {
@@ -79,7 +77,7 @@ function byteColor(index: number, value: number): Color {
 function drawLoadingMessage(): void {
   engineImageFont.drawTextScreen(
     "loading memory...",
-    vec2(WINDOW_X + WINDOW_WIDTH / 2, WINDOW_Y + WINDOW_HEIGHT / 2),
+    vec2(CANVAS_PIXELS / 2, (TITLE_BAR_HEIGHT + CONTENT_BOTTOM) / 2),
     MEMORY_TEXT_SIZE,
     true,
     NONZERO_COLOR,
