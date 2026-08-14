@@ -192,6 +192,18 @@ async function main() {
         successful: true,
       },
     });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room10.js",
+      factoryName: "createRoom10Module",
+      input: "AAAAAAAAAAAApass",
+      expected: {
+        bufferSize: 36,
+        memoryIncludes: "pass",
+        output: ["Enter something", "WHAT. How did you do this???"],
+        successful: true,
+      },
+    });
   } finally {
     server.close();
   }

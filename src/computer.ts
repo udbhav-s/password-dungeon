@@ -17,6 +17,7 @@ import room4Source from "../c_levels/room4.c?raw";
 import room5Source from "../c_levels/room5.c?raw";
 import room5aSource from "../c_levels/room5a.c?raw";
 import room6Source from "../c_levels/room6.c?raw";
+import room10Source from "../c_levels/room10.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
@@ -25,6 +26,7 @@ import { Room4ProgramManager } from "./programs/room4";
 import { Room5ProgramManager } from "./programs/room5";
 import { Room5AProgramManager } from "./programs/room5a";
 import { Room6ProgramManager } from "./programs/room6";
+import { Room10ProgramManager } from "./programs/room10";
 import type { Item } from "./types";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
@@ -120,6 +122,11 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     sourceLines: room6Source.split("\n"),
     loadingMessage: "loading room6.c...",
     sourceRedaction: "structn4v1gator67",
+  },
+  "room-10": {
+    createManager: () => new Room10ProgramManager(),
+    sourceLines: room10Source.split("\n"),
+    loadingMessage: "loading room10.c...",
   },
 };
 

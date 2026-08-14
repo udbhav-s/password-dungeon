@@ -29,6 +29,7 @@ type ProgramFactoryName =
   | "createRoom5Module"
   | "createRoom5AModule"
   | "createRoom6Module"
+  | "createRoom10Module"
   | "createBuffer1Module";
 
 interface ProgramConfig {
@@ -45,6 +46,7 @@ declare global {
     createRoom5Module?: ProgramModuleFactory;
     createRoom5AModule?: ProgramModuleFactory;
     createRoom6Module?: ProgramModuleFactory;
+    createRoom10Module?: ProgramModuleFactory;
     createBuffer1Module?: ProgramModuleFactory;
   }
 }
@@ -64,6 +66,7 @@ function moduleFactory(name: ProgramFactoryName): ProgramModuleFactory | undefin
   if (name === "createRoom5Module") return window.createRoom5Module;
   if (name === "createRoom5AModule") return window.createRoom5AModule;
   if (name === "createRoom6Module") return window.createRoom6Module;
+  if (name === "createRoom10Module") return window.createRoom10Module;
   return window.createBuffer1Module;
 }
 

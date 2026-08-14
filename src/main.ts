@@ -27,6 +27,7 @@ import room5aData from "./data/rooms/room-5a.json";
 import room5bData from "./data/rooms/room-5b.json";
 import room6Data from "./data/rooms/room-6.json";
 import room7Data from "./data/rooms/room-7.json";
+import room10Data from "./data/rooms/room-10.json";
 import type {
   Dungeon,
   Door,
@@ -68,10 +69,14 @@ import {
   COMPUTER_APPROACH_DIALOG as ROOM_6_COMPUTER_APPROACH_DIALOG,
   Room6Interaction,
 } from "./room-interactions/room6";
+import {
+  onEnter as onEnterRoom10,
+  showFinishPrompt as showRoom10FinishPrompt,
+} from "./room-interactions/room10";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
 const DEBUG_MODE = true;
-const DEBUG_START_ROOM = "room-6";
+const DEBUG_START_ROOM = "room-10";
 const DEBUG_ENABLED_ITEM_IDS = ["source-view", "memory-view", "ascii-lens"];
 const DEBUG_CONSOLE = false;
 
@@ -84,6 +89,7 @@ const room5a: Room = room5aData as unknown as Room;
 const room5b: Room = room5bData as unknown as Room;
 const room6: Room = room6Data as unknown as Room;
 const room7: Room = room7Data as unknown as Room;
+const room10: Room = room10Data as unknown as Room;
 
 const room3Interaction = new Room3Interaction(room3, (position, size) =>
   overlapsWall(room3, position, size),
@@ -115,6 +121,7 @@ const simpleDungeon: Dungeon = {
     [room5b.id]: room5b,
     [room6.id]: room6,
     [room7.id]: room7,
+    [room10.id]: room10,
   },
 };
 
@@ -283,6 +290,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   setCameraPos(vec2(player.position.x, player.position.y));
   console.log(`Entered ${currentRoom.name}.`);
   if (currentRoom.id === "room-2") onEnterRoom2();
+  if (currentRoom.id === "room-10") onEnterRoom10();
 }
 
 function overlapsWall(room: Room, position: { x: number; y: number }, size = player.size): boolean {
@@ -602,7 +610,15 @@ function gameUpdate(): void {
 
   if (transitionCooldown === 0) {
     const door = findBoundaryDoor();
-    if (door) loadRoom(door.toRoom, door.entry);
+    if (door?.id === "finish-door" && currentRoom.id === "room-10") {
+      const entryPosition = tileToWorld(currentRoom, door.entry.x, door.entry.y);
+      player.position = { ...entryPosition };
+      previousPlayerTile = playerTile();
+      transitionCooldown = 0.25;
+      showRoom10FinishPrompt();
+    } else if (door) {
+      loadRoom(door.toRoom, door.entry);
+    }
   }
 }
 
