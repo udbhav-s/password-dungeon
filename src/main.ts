@@ -101,6 +101,8 @@ const player: Player = {
 const ZOOM_STEP = 0.1;
 const PLAYER_SPRITE_FRAME_SIZE = 64;
 const PLAYER_SPRITE_TEXTURE_INDEX = 1;
+const LAVA_FRAME_SIZE = 96;
+const LAVA_TEXTURE_INDEX = 2;
 const PLAYER_SPRITE_DRAW_SIZE = 1.2;
 const PLAYER_WALK_FRAME_DURATION = 0.16;
 // Fixed for now; a future player-progression system can raise/lower these.
@@ -582,15 +584,20 @@ function gameRender(): void {
 
   for (let y = 0; y < currentRoom.height; y += 1) {
     for (let x = 0; x < currentRoom.width; x += 1) {
-      const tile = tileAt(currentRoom, x, y);
-      const door = tile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
-      if (tile.type === "lava") {
+      const gridTile = tileAt(currentRoom, x, y);
+      const door = gridTile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
+      if (gridTile.type === "lava") {
         const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
-        drawRect(vec2(position.x, position.y), vec2(1), parseColor("#c0392b"));
+        drawTile(
+          vec2(position.x, position.y),
+          vec2(1),
+          tile(0, LAVA_FRAME_SIZE, LAVA_TEXTURE_INDEX),
+          WHITE,
+        );
         continue;
       }
-      if (tile.type === "door" && door?.locked !== true) continue;
-      if (tile.type !== "wall" && door?.locked !== true) continue;
+      if (gridTile.type === "door" && door?.locked !== true) continue;
+      if (gridTile.type !== "wall" && door?.locked !== true) continue;
       const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
       const color = door?.locked === true ? "#777777" : currentRoom.wallColor;
       drawRect(vec2(position.x, position.y), vec2(1), parseColor(color));
@@ -643,5 +650,5 @@ void engineInit(
   () => {},
   gameRender,
   gameRenderPost,
-  ["/assets/password-dungeon-typing.png", "/assets/character.png"],
+  ["/assets/password-dungeon-typing.png", "/assets/character.png", "/assets/lava.png"],
 );
