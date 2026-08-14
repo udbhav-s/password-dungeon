@@ -10,14 +10,14 @@ import {
   vec2,
   WHITE,
 } from "littlejsengine";
-import room1Source from "../c_levels/room1.c?raw";
-import room2Source from "../c_levels/room2.c?raw";
-import room3Source from "../c_levels/room3.c?raw";
-import room4Source from "../c_levels/room4.c?raw";
-import room5Source from "../c_levels/room5.c?raw";
-import room5aSource from "../c_levels/room5a.c?raw";
-import room6Source from "../c_levels/room6.c?raw";
-import room10Source from "../c_levels/room10.c?raw";
+import room1Source from "./c_levels_display/room1.c?raw";
+import room2Source from "./c_levels_display/room2.c?raw";
+import room3Source from "./c_levels_display/room3.c?raw";
+import room4Source from "./c_levels_display/room4.c?raw";
+import room5Source from "./c_levels_display/room5.c?raw";
+import room5aSource from "./c_levels_display/room5a.c?raw";
+import room6Source from "./c_levels_display/room6.c?raw";
+import room10Source from "./c_levels_display/room10.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
