@@ -31,6 +31,12 @@ const DESCRIPTION_PADDING = 64;
 const DESCRIPTION_NAME_SIZE = 26;
 const DESCRIPTION_TEXT_SIZE = 18;
 const DESCRIPTION_LINE_HEIGHT = 26;
+const DESCRIPTION_PANEL_WIDTH = CANVAS_PIXELS - DESCRIPTION_PADDING;
+// The image font advances exactly one text size per character, so this is the
+// widest line that still fits inside the padded panel.
+const DESCRIPTION_MAX_LINE_CHARACTERS = Math.floor(
+  (DESCRIPTION_PANEL_WIDTH - DESCRIPTION_PADDING) / DESCRIPTION_TEXT_SIZE,
+);
 
 const BAR_HEIGHT = 84;
 const BAR_ITEM_SIZE = 48;
@@ -100,10 +106,22 @@ function wrapText(text: string, maxCharsPerLine: number): string[] {
   let currentLine = "";
 
   for (const word of words) {
-    const candidate = currentLine.length === 0 ? word : `${currentLine} ${word}`;
+    // A word wider than the whole panel can never fit on a line of its own, so
+    // split it rather than letting it run past the edges.
+    let remaining = word;
+    while (remaining.length > maxCharsPerLine) {
+      if (currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = "";
+      }
+      lines.push(remaining.slice(0, maxCharsPerLine));
+      remaining = remaining.slice(maxCharsPerLine);
+    }
+
+    const candidate = currentLine.length === 0 ? remaining : `${currentLine} ${remaining}`;
     if (candidate.length > maxCharsPerLine && currentLine.length > 0) {
       lines.push(currentLine);
-      currentLine = word;
+      currentLine = remaining;
     } else {
       currentLine = candidate;
     }
@@ -113,7 +131,7 @@ function wrapText(text: string, maxCharsPerLine: number): string[] {
 }
 
 function drawDescriptionPanel(item: Item): void {
-  const panelWidth = CANVAS_PIXELS - DESCRIPTION_PADDING;
+  const panelWidth = DESCRIPTION_PANEL_WIDTH;
   drawRect(
     vec2(CANVAS_PIXELS / 2, DESCRIPTION_PANEL_Y),
     vec2(panelWidth, DESCRIPTION_PANEL_HEIGHT),
@@ -142,7 +160,7 @@ function drawDescriptionPanel(item: Item): void {
     false,
   );
 
-  const descriptionLines = wrapText(item.description, 72);
+  const descriptionLines = wrapText(item.description, DESCRIPTION_MAX_LINE_CHARACTERS);
   descriptionLines.forEach((line, index) => {
     engineImageFont.drawTextScreen(
       line,

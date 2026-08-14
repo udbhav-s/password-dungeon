@@ -17,6 +17,12 @@ const DIALOG_HEIGHT_PIXELS = DIALOG_HEIGHT_TILES * TILE_PIXELS;
 const DIALOG_TEXT_SIZE = 24;
 const DIALOG_TEXT_SPEED = 28;
 const DIALOG_PADDING = TILE_PIXELS;
+const DIALOG_LINE_HEIGHT = DIALOG_TEXT_SIZE * 1.5;
+// The image font advances exactly one text size per character, so this is the
+// widest line that still fits between the padded edges of the box.
+const DIALOG_MAX_LINE_CHARACTERS = Math.floor(
+  (CANVAS_PIXELS - DIALOG_PADDING * 2) / DIALOG_TEXT_SIZE,
+);
 
 let dialog: DialogState | undefined;
 
@@ -113,16 +119,28 @@ export function updateDialog(): void {
   }
 }
 
-function wrapText(text: string, maxCharacters = 58): string[] {
+function wrapText(text: string, maxCharacters = DIALOG_MAX_LINE_CHARACTERS): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split("\n")) {
     const words = paragraph.split(" ");
     let line = "";
     for (const word of words) {
-      const candidate = line ? `${line} ${word}` : word;
+      // A word wider than the whole box can never fit on a line of its own, so
+      // split it rather than letting it run past the edges.
+      let remaining = word;
+      while (remaining.length > maxCharacters) {
+        if (line) {
+          lines.push(line);
+          line = "";
+        }
+        lines.push(remaining.slice(0, maxCharacters));
+        remaining = remaining.slice(maxCharacters);
+      }
+
+      const candidate = line ? `${line} ${remaining}` : remaining;
       if (candidate.length > maxCharacters && line) {
         lines.push(line);
-        line = word;
+        line = remaining;
       } else {
         line = candidate;
       }
@@ -132,15 +150,17 @@ function wrapText(text: string, maxCharacters = 58): string[] {
   return lines;
 }
 
-function drawDialogText(text: string, centerX: number, centerY: number): void {
+// `topY` and `bottomY` bound the centers of the first and last line that fit.
+// The block is centered between them, but never starts above the top.
+function drawDialogText(text: string, centerX: number, topY: number, bottomY: number): void {
   const lines = wrapText(text);
-  const lineHeight = DIALOG_TEXT_SIZE * 1.5;
-  const firstLineY = centerY - ((lines.length - 1) * lineHeight) / 2;
+  const blockHeight = (lines.length - 1) * DIALOG_LINE_HEIGHT;
+  const firstLineY = Math.max(topY, (topY + bottomY - blockHeight) / 2);
 
   lines.forEach((line, index) => {
     engineImageFont.drawTextScreen(
       line,
-      vec2(centerX, firstLineY + index * lineHeight),
+      vec2(centerX, firstLineY + index * DIALOG_LINE_HEIGHT),
       DIALOG_TEXT_SIZE,
       true,
       WHITE,
@@ -189,20 +209,23 @@ export function drawDialog(playerY: number): void {
     dialog.messageIndex === dialog.messages.length - 1 &&
     dialog.choices &&
     dialog.choices.length > 0;
-  drawDialogText(
-    visibleMessage,
-    CANVAS_PIXELS / 2,
-    dialogCenterY - (choicesVisible ? TILE_PIXELS * 2.5 : TILE_PIXELS),
-  );
+
+  // Text stops a line short of the choices, or of the [Enter] prompt when there
+  // are none, so a long message can never run into either.
+  const choiceStartY = dialogCenterY + TILE_PIXELS / 2;
+  const textTopY = dialogTop + DIALOG_PADDING;
+  const textBottomY = choicesVisible
+    ? choiceStartY - DIALOG_LINE_HEIGHT
+    : dialogTop + DIALOG_HEIGHT_PIXELS - DIALOG_PADDING - DIALOG_LINE_HEIGHT;
+  drawDialogText(visibleMessage, CANVAS_PIXELS / 2, textTopY, textBottomY);
 
   if (choicesVisible && dialog.choices) {
-    const choiceStartY = dialogCenterY + TILE_PIXELS / 2;
     const selectedChoiceIndex = dialog.selectedChoiceIndex;
     dialog.choices.forEach((choice, index) => {
       const prefix = index === selectedChoiceIndex ? "> " : "  ";
       engineImageFont.drawTextScreen(
         `${prefix}${choice.label}`,
-        vec2(CANVAS_PIXELS / 2, choiceStartY + index * DIALOG_TEXT_SIZE * 1.5),
+        vec2(CANVAS_PIXELS / 2, choiceStartY + index * DIALOG_LINE_HEIGHT),
         DIALOG_TEXT_SIZE,
         true,
         index === selectedChoiceIndex ? parseColor("#d4a6ff") : WHITE,
