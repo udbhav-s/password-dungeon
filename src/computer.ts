@@ -16,6 +16,7 @@ import room3Source from "../c_levels/room3.c?raw";
 import room4Source from "../c_levels/room4.c?raw";
 import room5Source from "../c_levels/room5.c?raw";
 import room5aSource from "../c_levels/room5a.c?raw";
+import room6Source from "../c_levels/room6.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
@@ -23,6 +24,7 @@ import { Room3ProgramManager } from "./programs/room3";
 import { Room4ProgramManager } from "./programs/room4";
 import { Room5ProgramManager } from "./programs/room5";
 import { Room5AProgramManager } from "./programs/room5a";
+import { Room6ProgramManager } from "./programs/room6";
 import type { Item } from "./types";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
@@ -112,6 +114,12 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     createManager: () => new Room5AProgramManager(),
     sourceLines: room5aSource.split("\n"),
     loadingMessage: "loading room5a.c...",
+  },
+  "room-6": {
+    createManager: () => new Room6ProgramManager(),
+    sourceLines: room6Source.split("\n"),
+    loadingMessage: "loading room6.c...",
+    sourceRedaction: "structn4v1gator67",
   },
 };
 
@@ -363,7 +371,18 @@ export function updateComputer(): void {
 }
 
 function drawTerminalText(text: string, x: number, y: number, center = false): void {
-  engineImageFont.drawTextScreen(text, vec2(x, y), TERMINAL_TEXT_SIZE, center, WHITE, false);
+  const availableWidth = center
+    ? CANVAS_PIXELS
+    : Math.max(0, CANVAS_PIXELS - TERMINAL_PADDING - x);
+  const visibleCharacters = Math.floor(availableWidth / TERMINAL_TEXT_SIZE);
+  engineImageFont.drawTextScreen(
+    text.slice(0, visibleCharacters),
+    vec2(x, y),
+    TERMINAL_TEXT_SIZE,
+    center,
+    WHITE,
+    false,
+  );
 }
 
 function drawTerminal(): void {
@@ -410,7 +429,14 @@ function drawCodeView(): void {
 
     const hiddenLine = `${line.slice(0, redactionStart)}${" ".repeat(sourceRedaction.length)}${line.slice(redactionStart + sourceRedaction.length)}`;
     drawTerminalText(hiddenLine, TERMINAL_PADDING, y);
-    for (let character = 0; character < sourceRedaction.length; character += 1) {
+    const maxVisibleCharacters = Math.floor(
+      (CANVAS_PIXELS - TERMINAL_PADDING * 2) / TERMINAL_TEXT_SIZE,
+    );
+    const visibleRedactionCharacters = Math.max(
+      0,
+      Math.min(sourceRedaction.length, maxVisibleCharacters - redactionStart),
+    );
+    for (let character = 0; character < visibleRedactionCharacters; character += 1) {
       drawRect(
         vec2(
           TERMINAL_PADDING + (redactionStart + character + 0.5) * TERMINAL_TEXT_SIZE,

@@ -9,7 +9,8 @@
 // The manager provides a line when the terminal submits input.
 /**
 Explanation:
-There is a FIFO queue of promises. When the C program requests input,
+There is a FIFO queue of promises. When the C program requests
+input,
 it queues a promise with the input request.
 When the JS program enters input, it gets the next promise in queue,
 and resolves it with the received input.
@@ -57,7 +58,8 @@ int main() {
     int won = 0;
     do {
         memset(buffer, 0, sizeof(buffer));
-        printf("Enter the password (it is totally not 'password'):\n");
+        printf("Enter the password "
+               "(it is totally not 'password'):\n");
         read_line(buffer, sizeof(buffer));
         notify_input();
 

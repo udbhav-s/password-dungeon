@@ -95,6 +95,13 @@ async function verifyProgram({ baseUrl, fileName, factoryName, input, expected }
   const size = module.ccall("get_buffer_size", "number", [], []);
   const buffer = module.HEAPU8.slice(address, address + size);
   assert.equal(buffer.length, expected.bufferSize, `${factoryName} exposed an unexpected buffer size`);
+  if (expected.memoryIncludes) {
+    const memoryText = new TextDecoder().decode(buffer);
+    assert.ok(
+      memoryText.includes(expected.memoryIncludes),
+      `${factoryName} memory did not contain ${expected.memoryIncludes}`,
+    );
+  }
   if (expected.state) {
     const state = module.ccall(expected.state.name, "number", [], []);
     assert.equal(state, expected.state.value, `${factoryName} exposed an unexpected state value`);
@@ -171,6 +178,18 @@ async function main() {
         output: ["this does something", "Adjusted crate size"],
         successful: true,
         state: { name: "get_crate_size", value: 5 },
+      },
+    });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room6.js",
+      factoryName: "createRoom6Module",
+      input: "structn4v1gator67",
+      expected: {
+        bufferSize: 1371,
+        memoryIncludes: "structn4v1gator67",
+        output: ["Good luck finding the password haha", "Correct"],
+        successful: true,
       },
     });
   } finally {

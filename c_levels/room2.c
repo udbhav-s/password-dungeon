@@ -34,7 +34,8 @@ int main() {
     active_buffer = buffer;
 
     printf("turns out the last password wasn't super secure...\n");
-    printf("I have decided to not mention it in the output anymore.\n");
+    printf("I have decided to not mention it in the output "
+           "anymore.\n");
 
     memset(buffer, 0, sizeof(buffer));
     printf("Enter password: \n");

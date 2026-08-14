@@ -26,6 +26,7 @@ import room5Data from "./data/rooms/room-5.json";
 import room5aData from "./data/rooms/room-5a.json";
 import room5bData from "./data/rooms/room-5b.json";
 import room6Data from "./data/rooms/room-6.json";
+import room7Data from "./data/rooms/room-7.json";
 import type {
   Dungeon,
   Door,
@@ -63,10 +64,14 @@ import { Room3Interaction } from "./room-interactions/room3";
 import { Room4Interaction } from "./room-interactions/room4";
 import { Room5AInteraction } from "./room-interactions/room5a";
 import { Room5BInteraction } from "./room-interactions/room5b";
+import {
+  COMPUTER_APPROACH_DIALOG as ROOM_6_COMPUTER_APPROACH_DIALOG,
+  Room6Interaction,
+} from "./room-interactions/room6";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
-const DEBUG_MODE = false;
-const DEBUG_START_ROOM = "room-5";
+const DEBUG_MODE = true;
+const DEBUG_START_ROOM = "room-6";
 const DEBUG_ENABLED_ITEM_IDS = ["source-view", "memory-view", "ascii-lens"];
 const DEBUG_CONSOLE = false;
 
@@ -78,6 +83,7 @@ const room5: Room = room5Data as unknown as Room;
 const room5a: Room = room5aData as unknown as Room;
 const room5b: Room = room5bData as unknown as Room;
 const room6: Room = room6Data as unknown as Room;
+const room7: Room = room7Data as unknown as Room;
 
 const room3Interaction = new Room3Interaction(room3, (position, size) =>
   overlapsWall(room3, position, size),
@@ -93,6 +99,7 @@ const room5bInteraction = new Room5BInteraction(
   () => player.inventory.some((item) => item.id === "memory-view"),
   () => awardAsciiLens(),
 );
+const room6Interaction = new Room6Interaction(() => openDialog(ROOM_6_COMPUTER_APPROACH_DIALOG));
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -107,6 +114,7 @@ const simpleDungeon: Dungeon = {
     [room5a.id]: room5a,
     [room5b.id]: room5b,
     [room6.id]: room6,
+    [room7.id]: room7,
   },
 };
 
@@ -264,6 +272,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   if (currentRoom.id === "room-3") room3Interaction.reset();
   if (currentRoom.id === "room-4") room4Interaction.reset();
   if (currentRoom.id === "room-5a") room5aInteraction.reset();
+  if (currentRoom.id === "room-6") room6Interaction.reset();
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(currentRoom, spawn.x, spawn.y);
@@ -554,6 +563,13 @@ function gameUpdate(): void {
   }
   if (currentRoom.id === "room-5a") {
     room5aInteraction.update(player.position, player.size, playerMovement);
+  }
+  if (currentRoom.id === "room-6") {
+    const computer = currentRoom.objects.find((object) => object.id === "computer-6");
+    const computerPosition = computer
+      ? tileToWorld(currentRoom, computer.position.x, computer.position.y)
+      : undefined;
+    room6Interaction.update(player.position, computerPosition);
   }
 
   const currentPlayerTile = playerTile();
