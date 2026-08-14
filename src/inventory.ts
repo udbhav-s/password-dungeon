@@ -1,4 +1,19 @@
-import { Color, drawRect, engineImageFont, keyWasPressed, timeDelta, vec2, WHITE } from "littlejsengine";
+import {
+  Color,
+  drawRect,
+  drawTile,
+  engineImageFont,
+  keyWasPressed,
+  tile,
+  timeDelta,
+  vec2,
+  WHITE,
+} from "littlejsengine";
+import {
+  itemIconFrame,
+  ITEM_SPRITE_FRAME_SIZE,
+  ITEM_SPRITE_TEXTURE_INDEX,
+} from "./item-icons";
 import type { Item } from "./types";
 
 const CANVAS_PIXELS = 1024;
@@ -26,12 +41,20 @@ let isOpen = false;
 let selectedIndex = 0;
 let ringRotation = 0;
 
-function parseColor(hex: string): Color {
-  const value = hex.replace("#", "");
-  const red = Number.parseInt(value.slice(0, 2), 16) / 255;
-  const green = Number.parseInt(value.slice(2, 4), 16) / 255;
-  const blue = Number.parseInt(value.slice(4, 6), 16) / 255;
-  return new Color(red, green, blue);
+function drawItemIcon(item: Item, x: number, y: number, size: number): void {
+  const frame = itemIconFrame(item.id);
+  if (frame === undefined) return;
+  drawTile(
+    vec2(x, y),
+    vec2(size),
+    tile(frame, ITEM_SPRITE_FRAME_SIZE, ITEM_SPRITE_TEXTURE_INDEX),
+    WHITE,
+    0,
+    false,
+    undefined,
+    false,
+    true,
+  );
 }
 
 function angleStep(itemCount: number): number {
@@ -173,7 +196,7 @@ export function drawInventoryPopup(items: Item[]): void {
     if (isSelected) {
       drawRect(vec2(x, y), vec2(boxSize + 12), WHITE, 0, false, true);
     }
-    drawRect(vec2(x, y), vec2(boxSize), parseColor(item.color), 0, false, true);
+    drawItemIcon(item, x, y, boxSize);
   });
 
   drawDescriptionPanel(items[selectedIndex]);
@@ -207,6 +230,6 @@ export function drawInventoryBar(items: Item[]): void {
 
   items.forEach((item, index) => {
     const x = startX + index * (BAR_ITEM_SIZE + BAR_ITEM_GAP);
-    drawRect(vec2(x, barCenterY), vec2(BAR_ITEM_SIZE), parseColor(item.color), 0, false, true);
+    drawItemIcon(item, x, barCenterY, BAR_ITEM_SIZE);
   });
 }

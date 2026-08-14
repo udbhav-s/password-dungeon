@@ -1,7 +1,7 @@
 {
   "id": "simple-dungeon",
   "name": "Simple Dungeon",
-  "startRoom": "room-7",
+  "startRoom": "room-1",
   "roomIds": [
     "room-1",
     "room-2",

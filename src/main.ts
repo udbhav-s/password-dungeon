@@ -56,6 +56,11 @@ import {
 import { drawDialog, isDialogOpen, openDialog, updateDialog } from "./dialog";
 import { drawInventoryBar, drawInventoryPopup, isInventoryOpen, updateInventory } from "./inventory";
 import {
+  itemIconFrame,
+  ITEM_SPRITE_FRAME_SIZE,
+  ITEM_SPRITE_TEXTURE_INDEX,
+} from "./item-icons";
+import {
   drawTitleScreen,
   isTitleScreenActive,
   setTitleScreenSkipped,
@@ -71,6 +76,14 @@ import { Room4Interaction } from "./room-interactions/room4";
 import { Room5AInteraction } from "./room-interactions/room5a";
 import { Room5BInteraction } from "./room-interactions/room5b";
 import { Room7AInteraction } from "./room-interactions/room7a";
+import {
+  COMPUTER_APPROACH_DIALOG as ROOM_6_COMPUTER_APPROACH_DIALOG,
+  Room6Interaction,
+} from "./room-interactions/room6";
+import {
+  onEnter as onEnterRoom10,
+  showFinishPrompt as showRoom10FinishPrompt,
+} from "./room-interactions/room10";
 import {
   checkMirrorGoal,
   drawMirrorRoom,
@@ -134,6 +147,11 @@ const room7aInteraction = new Room7AInteraction(
   () => player.inventory.some((item) => item.id === "memory-view"),
   () => awardQuizItem("int-lens"),
 );
+const room6Interaction = new Room6Interaction(() => openDialog(ROOM_6_COMPUTER_APPROACH_DIALOG));
+const ROOM_1_COMPUTER_DIALOG = [
+  "this is a computer",
+  "press [Enter] to access it",
+] as const;
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -172,9 +190,12 @@ const CAMERA_SCALE_BASE = 48;
 const PLAYER_SPRITE_FRAME_SIZE = 64;
 const PLAYER_SPRITE_TEXTURE_INDEX = 1;
 const LAVA_FRAME_SIZE = 96;
-const LAVA_TEXTURE_INDEX = 2;
+const LAVA_TEXTURE_INDEX = 5;
 const PLAYER_SPRITE_DRAW_SIZE = 1.2;
 const PLAYER_WALK_FRAME_DURATION = 0.16;
+const WORLD_SPRITE_FRAME_SIZE = 64;
+const COMPUTER_SPRITE_TEXTURE_INDEX = 3;
+const LOCKED_DOOR_SPRITE_TEXTURE_INDEX = 4;
 // Fixed for now; a future player-progression system can raise/lower these.
 let minZoom = 1.6;
 let maxZoom = 2.5;
@@ -192,6 +213,7 @@ let playerWalking = false;
 let playerWalkElapsed = 0;
 let playerWalkFrame = 0;
 let activeComputer: RoomObject | undefined;
+let room1ComputerDialogShown = false;
 
 function applyDebugConfiguration(): void {
   player.inventory.length = 0;
@@ -315,6 +337,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   if (currentRoom.id === "room-3") room3Interaction.reset();
   if (currentRoom.id === "room-4") room4Interaction.reset();
   if (currentRoom.id === "room-5a") room5aInteraction.reset();
+  if (currentRoom.id === "room-6") room6Interaction.reset();
   resetPressurePuzzle(currentRoom);
   resetMirrorRoom(currentRoom);
 
@@ -328,6 +351,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   setCameraPos(vec2(camera.x, camera.y));
   console.log(`Entered ${currentRoom.name}.`);
   if (currentRoom.id === "room-2") onEnterRoom2();
+  if (currentRoom.id === "room-10") onEnterRoom10();
 }
 
 function overlapsWall(room: Room, position: { x: number; y: number }, size = player.size): boolean {
@@ -632,6 +656,13 @@ function gameUpdate(): void {
   if (currentRoom.id === "room-5a") {
     room5aInteraction.update(player.position, player.size, playerMovement);
   }
+  if (currentRoom.id === "room-6") {
+    const computer = currentRoom.objects.find((object) => object.id === "computer-6");
+    const computerPosition = computer
+      ? tileToWorld(currentRoom, computer.position.x, computer.position.y)
+      : undefined;
+    room6Interaction.update(player.position, computerPosition);
+  }
 
   updatePressurePuzzle(currentRoom, playerTile());
   if (consumePressurePuzzleFailure()) {
@@ -680,6 +711,12 @@ function gameUpdate(): void {
   }
 
   const nearbyComputer = computerInRange();
+  if (currentRoom.id === "room-1" && nearbyComputer && !room1ComputerDialogShown) {
+    room1ComputerDialogShown = true;
+    openDialog(ROOM_1_COMPUTER_DIALOG);
+    return;
+  }
+
   if (keyWasPressed("Enter") && nearbyComputer) {
     activeComputer = nearbyComputer;
     openComputer(nearbyComputer.programId ?? currentRoom.id, player.inventory);
@@ -688,7 +725,15 @@ function gameUpdate(): void {
 
   if (transitionCooldown === 0) {
     const door = findBoundaryDoor();
-    if (door) loadRoom(door.toRoom, door.entry);
+    if (door?.id === "finish-door" && currentRoom.id === "room-10") {
+      const entryPosition = tileToWorld(currentRoom, door.entry.x, door.entry.y);
+      player.position = { ...entryPosition };
+      previousPlayerTile = playerTile();
+      transitionCooldown = 0.25;
+      showRoom10FinishPrompt();
+    } else if (door) {
+      loadRoom(door.toRoom, door.entry);
+    }
   }
 }
 
@@ -742,9 +787,10 @@ function gameRender(): void {
 
   for (let y = 0; y < currentRoom.height; y += 1) {
     for (let x = 0; x < currentRoom.width; x += 1) {
-      const gridTile = tileAt(currentRoom, x, y);
-      const door = gridTile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
-      if (gridTile.type === "lava") {
+      const roomTile = tileAt(currentRoom, x, y);
+      const door = roomTile.type === "door" ? doorAt(currentRoom, x, y) : undefined;
+      const isLockedDoor = door?.locked === true;
+      if (roomTile.type === "lava") {
         const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
         drawTile(
           vec2(position.x, position.y),
@@ -754,11 +800,19 @@ function gameRender(): void {
         );
         continue;
       }
-      if (gridTile.type === "door" && door?.locked !== true) continue;
-      if (gridTile.type !== "wall" && door?.locked !== true) continue;
+      if (roomTile.type === "door" && !isLockedDoor) continue;
+      if (roomTile.type !== "wall" && !isLockedDoor) continue;
       const position = tileToWorld(currentRoom, x + 0.5, y + 0.5);
-      const color = door?.locked === true ? "#777777" : currentRoom.wallColor;
-      drawRect(vec2(position.x, position.y), vec2(1), parseColor(color));
+      if (isLockedDoor) {
+        drawTile(
+          vec2(position.x, position.y),
+          vec2(1),
+          tile(0, WORLD_SPRITE_FRAME_SIZE, LOCKED_DOOR_SPRITE_TEXTURE_INDEX),
+          WHITE,
+        );
+        continue;
+      }
+      drawRect(vec2(position.x, position.y), vec2(1), parseColor(currentRoom.wallColor));
     }
   }
 
@@ -770,11 +824,28 @@ function gameRender(): void {
 
   for (const item of roomItems) {
     const position = tileToWorld(currentRoom, item.position.x, item.position.y);
-    drawRect(vec2(position.x, position.y), vec2(0.6), parseColor(item.color));
+    const frame = itemIconFrame(item.id);
+    if (frame !== undefined) {
+      drawTile(
+        vec2(position.x, position.y),
+        vec2(0.7),
+        tile(frame, ITEM_SPRITE_FRAME_SIZE, ITEM_SPRITE_TEXTURE_INDEX),
+        WHITE,
+      );
+    }
   }
 
   for (const object of currentRoom.objects) {
     const position = tileToWorld(currentRoom, object.position.x, object.position.y);
+    if (object.objectType === "computer") {
+      drawTile(
+        vec2(position.x, position.y),
+        vec2(1),
+        tile(0, WORLD_SPRITE_FRAME_SIZE, COMPUTER_SPRITE_TEXTURE_INDEX),
+        WHITE,
+      );
+      continue;
+    }
     drawRect(vec2(position.x, position.y), vec2(0.8), parseColor(object.color));
   }
 
@@ -811,5 +882,12 @@ void engineInit(
   () => {},
   gameRender,
   gameRenderPost,
-  ["/assets/password-dungeon-typing.png", "/assets/character.png", "/assets/lava.png"],
+  [
+    "/assets/password-dungeon-typing.png",
+    "/assets/character.png",
+    "/assets/items.png",
+    "/assets/computer.png",
+    "/assets/locked door.png",
+    "/assets/lava.png",
+  ],
 );

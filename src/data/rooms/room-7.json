@@ -46,14 +46,14 @@
       "x": 0,
       "y": 15,
       "toRoom": "room-6",
-      "entry": { "x": 45.5, "y": 15.5 }
+      "entry": { "x": 13.5, "y": 7.5 }
     },
     {
       "type": "door",
       "x": 0,
       "y": 16,
       "toRoom": "room-6",
-      "entry": { "x": 45.5, "y": 16.5 }
+      "entry": { "x": 13.5, "y": 8.5 }
     },
     {
       "type": "door",

@@ -10,15 +10,17 @@ import {
   vec2,
   WHITE,
 } from "littlejsengine";
-import room1Source from "../c_levels/room1.c?raw";
-import room2Source from "../c_levels/room2.c?raw";
-import room3Source from "../c_levels/room3.c?raw";
-import room4Source from "../c_levels/room4.c?raw";
-import room5Source from "../c_levels/room5.c?raw";
-import room5aSource from "../c_levels/room5a.c?raw";
+import room1Source from "./c_levels_display/room1.c?raw";
+import room2Source from "./c_levels_display/room2.c?raw";
+import room3Source from "./c_levels_display/room3.c?raw";
+import room4Source from "./c_levels_display/room4.c?raw";
+import room5Source from "./c_levels_display/room5.c?raw";
+import room5aSource from "./c_levels_display/room5a.c?raw";
+import room6Source from "./c_levels_display/room6.c?raw";
 import room7Source from "../c_levels/room7.c?raw";
 import room8Source from "../c_levels/room8.c?raw";
 import room9Source from "../c_levels/room9.c?raw";
+import room10Source from "./c_levels_display/room10.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
@@ -26,10 +28,17 @@ import { Room3ProgramManager } from "./programs/room3";
 import { Room4ProgramManager } from "./programs/room4";
 import { Room5ProgramManager } from "./programs/room5";
 import { Room5AProgramManager } from "./programs/room5a";
+import { Room6ProgramManager } from "./programs/room6";
 import { Room7ProgramManager } from "./programs/room7";
 import { Room8ProgramManager } from "./programs/room8";
 import { Room9ProgramManager } from "./programs/room9";
+import { Room10ProgramManager } from "./programs/room10";
 import type { Item, MemoryField } from "./types";
+import {
+  itemIconFrame,
+  ITEM_SPRITE_FRAME_SIZE,
+  ITEM_SPRITE_TEXTURE_INDEX,
+} from "./item-icons";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
 const CANVAS_PIXELS = 1024;
@@ -163,6 +172,12 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     sourceLines: room5aSource.split("\n"),
     loadingMessage: "loading room5a.c...",
   },
+  "room-6": {
+    createManager: () => new Room6ProgramManager(),
+    sourceLines: room6Source.split("\n"),
+    loadingMessage: "loading room6.c...",
+    sourceRedaction: "structn4v1gator67",
+  },
   "room-7": {
     createManager: () => new Room7ProgramManager(),
     sourceLines: room7Source.split("\n"),
@@ -182,6 +197,11 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     // names readable but the contents blank.
     sourceRedactionPattern: "(?<=\\.\\w+ = )[^,]+",
     memoryLegend: ROOM_9_LEGEND,
+  },
+  "room-10": {
+    createManager: () => new Room10ProgramManager(),
+    sourceLines: room10Source.split("\n"),
+    loadingMessage: "loading room10.c...",
   },
 };
 
@@ -447,7 +467,18 @@ export function updateComputer(): void {
 }
 
 function drawTerminalText(text: string, x: number, y: number, center = false): void {
-  engineImageFont.drawTextScreen(text, vec2(x, y), TERMINAL_TEXT_SIZE, center, WHITE, false);
+  const availableWidth = center
+    ? CANVAS_PIXELS
+    : Math.max(0, CANVAS_PIXELS - TERMINAL_PADDING - x);
+  const visibleCharacters = Math.floor(availableWidth / TERMINAL_TEXT_SIZE);
+  engineImageFont.drawTextScreen(
+    text.slice(0, visibleCharacters),
+    vec2(x, y),
+    TERMINAL_TEXT_SIZE,
+    center,
+    WHITE,
+    false,
+  );
 }
 
 function drawTerminal(): void {
@@ -521,8 +552,16 @@ function drawCodeView(): void {
     }
     drawTerminalText(hiddenLine, TERMINAL_PADDING, y);
 
+    // Boxes stop at the right edge of the terminal so they cannot spill past it.
+    const maxVisibleCharacters = Math.floor(
+      (CANVAS_PIXELS - TERMINAL_PADDING * 2) / TERMINAL_TEXT_SIZE,
+    );
     for (const range of ranges) {
-      for (let character = 0; character < range.length; character += 1) {
+      const visibleCharacters = Math.max(
+        0,
+        Math.min(range.length, maxVisibleCharacters - range.start),
+      );
+      for (let character = 0; character < visibleCharacters; character += 1) {
         drawRect(
           vec2(
             TERMINAL_PADDING + (range.start + character + 0.5) * TERMINAL_TEXT_SIZE,
@@ -669,14 +708,20 @@ function drawUsableItems(): void {
       false,
       true,
     );
-    drawRect(
-      vec2(centerX, HUD_CENTER_Y),
-      vec2(ITEM_ICON_SIZE),
-      parseColor(item.color),
-      0,
-      false,
-      true,
-    );
+    const frame = itemIconFrame(item.id);
+    if (frame !== undefined) {
+      drawTile(
+        vec2(centerX, HUD_CENTER_Y),
+        vec2(ITEM_ICON_SIZE),
+        tile(frame, ITEM_SPRITE_FRAME_SIZE, ITEM_SPRITE_TEXTURE_INDEX),
+        WHITE,
+        0,
+        false,
+        undefined,
+        false,
+        true,
+      );
+    }
   }
 }
 

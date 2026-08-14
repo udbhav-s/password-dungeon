@@ -1,4 +1,12 @@
-import { Color, drawRect, engineImageFont, mousePosScreen, timeDelta, vec2 } from "littlejsengine";
+import {
+  Color,
+  drawRect,
+  engineImageFont,
+  mousePosScreen,
+  mouseWheel,
+  timeDelta,
+  vec2,
+} from "littlejsengine";
 import { ProgramManagerView } from "./program-manager-base";
 import type { MemoryField } from "./types";
 
@@ -24,6 +32,7 @@ let manager: ProgramManagerView | undefined;
 let previousBuffer = new Uint8Array(0);
 const changedHeat: Map<number, number> = new Map();
 let refreshTimer = 0;
+let memoryLineOffset = 0;
 
 function parseColor(hex: string): Color {
   const value = hex.replace("#", "");
@@ -59,6 +68,21 @@ function payloadY(): number {
 
 function byteX(index: number): number {
   return TERMINAL_PADDING + index * (MEMORY_TEXT_SIZE * 3);
+}
+
+function visibleLineCount(): number {
+  return Math.max(
+    1,
+    Math.floor((CONTENT_BOTTOM - TERMINAL_PADDING - payloadY()) / MEMORY_LINE_HEIGHT),
+  );
+}
+
+function totalLineCount(buffer: Uint8Array): number {
+  return Math.ceil(buffer.length / BYTES_PER_LINE);
+}
+
+function maxLineOffset(buffer: Uint8Array): number {
+  return Math.max(0, totalLineCount(buffer) - visibleLineCount());
 }
 
 function drawText(text: string, x: number, y: number, color: Color): void {
@@ -221,12 +245,13 @@ function drawBuffer(
   intLensActive: boolean,
   legend?: MemoryField[],
 ): void {
-  const lineCount = Math.ceil(buffer.length / BYTES_PER_LINE);
+  const lineCount = Math.min(visibleLineCount(), totalLineCount(buffer) - memoryLineOffset);
 
-  for (let line = 0; line < lineCount; line += 1) {
+  for (let visibleLine = 0; visibleLine < lineCount; visibleLine += 1) {
+    const line = memoryLineOffset + visibleLine;
     const lineStart = line * BYTES_PER_LINE;
     const lineEnd = Math.min(buffer.length, lineStart + BYTES_PER_LINE);
-    const y = payloadY() + line * MEMORY_LINE_HEIGHT;
+    const y = payloadY() + visibleLine * MEMORY_LINE_HEIGHT;
     const lineWidth = (lineEnd - lineStart) * MEMORY_TEXT_SIZE * 3;
     const hovered =
       (asciiLensActive || intLensActive) &&
@@ -261,6 +286,38 @@ function drawBuffer(
   }
 
   if (legend) drawLegendLabel(buffer, legend);
+  drawMemoryScrollbar(buffer);
+}
+
+function drawMemoryScrollbar(buffer: Uint8Array): void {
+  const totalLines = totalLineCount(buffer);
+  const visibleLines = visibleLineCount();
+  if (totalLines <= visibleLines) return;
+
+  const trackTop = payloadY();
+  const trackHeight = CONTENT_BOTTOM - TERMINAL_PADDING - trackTop;
+  const thumbHeight = Math.max(24, trackHeight * (visibleLines / totalLines));
+  const thumbTravel = trackHeight - thumbHeight;
+  const offset = maxLineOffset(buffer);
+  const thumbOffset = offset === 0 ? 0 : (memoryLineOffset / offset) * thumbTravel;
+  const scrollbarX = CANVAS_PIXELS - TERMINAL_PADDING / 2;
+
+  drawRect(
+    vec2(scrollbarX, trackTop + trackHeight / 2),
+    vec2(8, trackHeight),
+    parseColor("#222222"),
+    0,
+    false,
+    true,
+  );
+  drawRect(
+    vec2(scrollbarX, trackTop + thumbOffset + thumbHeight / 2),
+    vec2(8, thumbHeight),
+    parseColor("#9b59d0"),
+    0,
+    false,
+    true,
+  );
 }
 
 export function resetMemoryView(nextManager: ProgramManagerView): void {
@@ -268,12 +325,20 @@ export function resetMemoryView(nextManager: ProgramManagerView): void {
   previousBuffer = new Uint8Array(0);
   changedHeat.clear();
   refreshTimer = 0;
+  memoryLineOffset = 0;
 }
 
 export function updateMemoryView(): void {
   if (!manager) return;
 
   const buffer = manager.bufferMemory;
+  if (mouseWheel !== 0) {
+    const direction = mouseWheel > 0 ? 1 : -1;
+    memoryLineOffset = Math.min(
+      maxLineOffset(buffer),
+      Math.max(0, memoryLineOffset + direction),
+    );
+  }
   if (previousBuffer.length === 0) refresh(buffer);
 
   refreshTimer += timeDelta;
