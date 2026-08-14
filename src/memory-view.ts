@@ -16,9 +16,10 @@ const HUD_HEIGHT = 160;
 const CONTENT_BOTTOM = CANVAS_PIXELS - HUD_HEIGHT;
 const TERMINAL_PADDING = 32;
 
-const MEMORY_TEXT_SIZE = 14;
-const MEMORY_LINE_HEIGHT = 18;
+const MEMORY_TEXT_SIZE = 16;
+const MEMORY_LINE_HEIGHT = 20;
 const BYTES_PER_LINE = 16;
+const BYTE_CELL_WIDTH = MEMORY_TEXT_SIZE * 3;
 const BYTES_PER_INT = 4;
 const REFRESH_INTERVAL_SECONDS = 0.25;
 const HEAT_DECAY_PER_SECOND = 2 / 3;
@@ -67,7 +68,31 @@ function payloadY(): number {
 }
 
 function byteX(index: number): number {
-  return TERMINAL_PADDING + index * (MEMORY_TEXT_SIZE * 3);
+  return TERMINAL_PADDING + index * BYTE_CELL_WIDTH;
+}
+
+// drawTextScreen centers every glyph on the position it is given, so a byte cell
+// starts half a character to the left of its text and a line of text is centered
+// on its y. Hit tests and highlights have to use those edges, not the text
+// position itself.
+function byteCellLeft(lineIndex: number): number {
+  return byteX(lineIndex) - MEMORY_TEXT_SIZE / 2;
+}
+
+function lineY(visibleLine: number): number {
+  return payloadY() + visibleLine * MEMORY_LINE_HEIGHT;
+}
+
+function isMouseOnLine(y: number): boolean {
+  return (
+    mousePosScreen.y >= y - MEMORY_LINE_HEIGHT / 2 &&
+    mousePosScreen.y <= y + MEMORY_LINE_HEIGHT / 2
+  );
+}
+
+// Lines actually on screen right now, which is what the mouse can reach.
+function drawnLineCount(buffer: Uint8Array): number {
+  return Math.min(visibleLineCount(), totalLineCount(buffer) - memoryLineOffset);
 }
 
 function visibleLineCount(): number {
@@ -190,18 +215,18 @@ function drawIntLine(
   }
 }
 
-// Byte cell the mouse is over, or -1. Cells are the same grid the hex dump uses.
+// Byte cell the mouse is over, or -1. Cells are the same grid the hex dump uses,
+// so this has to walk the scrolled-to lines rather than the whole buffer.
 function hoveredByteIndex(buffer: Uint8Array): number {
-  const lineCount = Math.ceil(buffer.length / BYTES_PER_LINE);
-  for (let line = 0; line < lineCount; line += 1) {
-    const y = payloadY() + line * MEMORY_LINE_HEIGHT;
-    if (mousePosScreen.y < y - 4 || mousePosScreen.y > y + MEMORY_LINE_HEIGHT - 2) continue;
+  const lineCount = drawnLineCount(buffer);
+  for (let visibleLine = 0; visibleLine < lineCount; visibleLine += 1) {
+    if (!isMouseOnLine(lineY(visibleLine))) continue;
 
-    const lineStart = line * BYTES_PER_LINE;
+    const lineStart = (memoryLineOffset + visibleLine) * BYTES_PER_LINE;
     const lineEnd = Math.min(buffer.length, lineStart + BYTES_PER_LINE);
     for (let index = lineStart; index < lineEnd; index += 1) {
-      const x = byteX(index - lineStart);
-      if (mousePosScreen.x >= x - 4 && mousePosScreen.x < x + MEMORY_TEXT_SIZE * 3 - 4) {
+      const left = byteCellLeft(index - lineStart);
+      if (mousePosScreen.x >= left && mousePosScreen.x < left + BYTE_CELL_WIDTH) {
         return index;
       }
     }
@@ -213,8 +238,12 @@ function hoveredByteIndex(buffer: Uint8Array): number {
 function drawLegendLabel(buffer: Uint8Array, legend: MemoryField[]): void {
   const hoveredIndex = hoveredByteIndex(buffer);
   const fieldIndex = fieldAt(legend, hoveredIndex);
-  const lineCount = Math.ceil(buffer.length / BYTES_PER_LINE);
-  const y = payloadY() + lineCount * MEMORY_LINE_HEIGHT + MEMORY_LINE_HEIGHT;
+  // A line below the last row on screen, but never past the bottom of the
+  // content area — a scrolling dump fills the view and would push it off.
+  const y = Math.min(
+    lineY(drawnLineCount(buffer)) + MEMORY_LINE_HEIGHT,
+    CONTENT_BOTTOM - TERMINAL_PADDING - MEMORY_TEXT_SIZE / 2,
+  );
 
   if (fieldIndex < 0) {
     drawText("hover a byte to name its field", TERMINAL_PADDING, y, ZERO_COLOR);
@@ -224,7 +253,7 @@ function drawLegendLabel(buffer: Uint8Array, legend: MemoryField[]): void {
   const field = legend[fieldIndex];
   const swatch = LEGEND_COLORS[fieldIndex % LEGEND_COLORS.length];
   drawRect(
-    vec2(TERMINAL_PADDING + MEMORY_TEXT_SIZE / 2, y + MEMORY_TEXT_SIZE / 2),
+    vec2(TERMINAL_PADDING + MEMORY_TEXT_SIZE / 2, y),
     vec2(MEMORY_TEXT_SIZE),
     swatch,
     0,
@@ -245,24 +274,25 @@ function drawBuffer(
   intLensActive: boolean,
   legend?: MemoryField[],
 ): void {
-  const lineCount = Math.min(visibleLineCount(), totalLineCount(buffer) - memoryLineOffset);
+  const lineCount = drawnLineCount(buffer);
 
   for (let visibleLine = 0; visibleLine < lineCount; visibleLine += 1) {
     const line = memoryLineOffset + visibleLine;
     const lineStart = line * BYTES_PER_LINE;
     const lineEnd = Math.min(buffer.length, lineStart + BYTES_PER_LINE);
-    const y = payloadY() + visibleLine * MEMORY_LINE_HEIGHT;
-    const lineWidth = (lineEnd - lineStart) * MEMORY_TEXT_SIZE * 3;
+    const y = lineY(visibleLine);
+    const rowLeft = byteCellLeft(0);
+    const lineWidth = (lineEnd - lineStart) * BYTE_CELL_WIDTH;
+    // The band is the hit area, so both use the same bounds.
     const hovered =
       (asciiLensActive || intLensActive) &&
-      mousePosScreen.x >= TERMINAL_PADDING - 8 &&
-      mousePosScreen.x <= TERMINAL_PADDING + lineWidth &&
-      mousePosScreen.y >= y - 4 &&
-      mousePosScreen.y <= y + MEMORY_LINE_HEIGHT - 2;
+      mousePosScreen.x >= rowLeft - 8 &&
+      mousePosScreen.x <= rowLeft + lineWidth + 8 &&
+      isMouseOnLine(y);
 
     if (hovered) {
       drawRect(
-        vec2(TERMINAL_PADDING - 8 + (lineWidth + 16) / 2, y + MEMORY_LINE_HEIGHT / 2 - 2),
+        vec2(rowLeft + lineWidth / 2, y),
         vec2(lineWidth + 16, MEMORY_LINE_HEIGHT),
         intLensActive ? INT_HOVER_COLOR : ASCII_HOVER_COLOR,
         0,
