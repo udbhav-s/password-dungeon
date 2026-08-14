@@ -14,11 +14,15 @@ import room1Source from "../c_levels/room1.c?raw";
 import room2Source from "../c_levels/room2.c?raw";
 import room3Source from "../c_levels/room3.c?raw";
 import room4Source from "../c_levels/room4.c?raw";
+import room5Source from "../c_levels/room5.c?raw";
+import room5aSource from "../c_levels/room5a.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
 import { Room3ProgramManager } from "./programs/room3";
 import { Room4ProgramManager } from "./programs/room4";
+import { Room5ProgramManager } from "./programs/room5";
+import { Room5AProgramManager } from "./programs/room5a";
 import type { Item } from "./types";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
@@ -63,6 +67,7 @@ interface ProgramDefinition {
   createManager: () => ProgramManagerBase;
   sourceLines: string[];
   loadingMessage: string;
+  sourceRedaction?: string;
 }
 
 interface UsableItemLayout {
@@ -97,6 +102,17 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     sourceLines: room4Source.split("\n"),
     loadingMessage: "loading room4.c...",
   },
+  "room-5": {
+    createManager: () => new Room5ProgramManager(),
+    sourceLines: room5Source.split("\n"),
+    loadingMessage: "loading room5.c...",
+    sourceRedaction: "1mpossiblehidd3np4ss",
+  },
+  "room-5a": {
+    createManager: () => new Room5AProgramManager(),
+    sourceLines: room5aSource.split("\n"),
+    loadingMessage: "loading room5a.c...",
+  },
 };
 
 let computerOpen = false;
@@ -105,6 +121,7 @@ let activeView: ComputerView = "console";
 let codeScrollOffset = 0;
 let sourceLines = room1Source.split("\n");
 let loadingMessage = "loading room1.c...";
+let sourceRedaction: string | undefined;
 let usableItems: Item[] = [];
 let typingFrame = 0;
 const typingKeys = new Set<string>();
@@ -116,7 +133,11 @@ const tabs: ComputerTab[] = [
     label: "View Source",
     isVisible: () => usableItems.some((item) => item.id === "source-view"),
   },
-  { id: "memory", label: "Memory", isVisible: () => true },
+  {
+    id: "memory",
+    label: "Memory",
+    isVisible: () => usableItems.some((item) => item.id === "memory-view"),
+  },
 ];
 
 function parseColor(hex: string): Color {
@@ -233,7 +254,10 @@ export function openComputer(programId: string, inventory: readonly Item[]): voi
   codeScrollOffset = 0;
   sourceLines = program.sourceLines;
   loadingMessage = program.loadingMessage;
-  usableItems = inventory.filter((item) => item.id === "source-view");
+  sourceRedaction = program.sourceRedaction;
+  usableItems = inventory.filter(
+    (item) => item.id === "source-view" || item.id === "memory-view",
+  );
   resetTypingFrame();
   resetMemoryView(programManager);
   void programManager.start();
@@ -250,6 +274,11 @@ export function hasComputerProgramSucceeded(): boolean {
 export function getActiveBallSize(): number | undefined {
   if (!(programManager instanceof Room3ProgramManager)) return undefined;
   return programManager.getBallSize();
+}
+
+export function getActiveCrateSize(): number | undefined {
+  if (!(programManager instanceof Room5AProgramManager)) return undefined;
+  return programManager.getCrateSize();
 }
 
 function visibleCodeLines(): number {
@@ -312,9 +341,9 @@ export function updateComputer(): void {
           HUD_CENTER_Y,
           ITEM_PANEL_SIZE,
           ITEM_PANEL_SIZE,
-        ) && item.id === "source-view"
+        ) && (item.id === "source-view" || item.id === "memory-view")
       ) {
-        setActiveView("source");
+        setActiveView(item.id === "source-view" ? "source" : "memory");
         break;
       }
     }
@@ -365,7 +394,28 @@ function drawCodeView(): void {
   const lines = sourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
 
   lines.forEach((line, index) => {
-    drawTerminalText(line, TERMINAL_PADDING, firstLineY + index * TERMINAL_LINE_HEIGHT);
+    const y = firstLineY + index * TERMINAL_LINE_HEIGHT;
+    const redactionStart = sourceRedaction ? line.indexOf(sourceRedaction) : -1;
+    if (redactionStart < 0 || !sourceRedaction) {
+      drawTerminalText(line, TERMINAL_PADDING, y);
+      return;
+    }
+
+    const hiddenLine = `${line.slice(0, redactionStart)}${" ".repeat(sourceRedaction.length)}${line.slice(redactionStart + sourceRedaction.length)}`;
+    drawTerminalText(hiddenLine, TERMINAL_PADDING, y);
+    for (let character = 0; character < sourceRedaction.length; character += 1) {
+      drawRect(
+        vec2(
+          TERMINAL_PADDING + (redactionStart + character + 0.5) * TERMINAL_TEXT_SIZE,
+          y + TERMINAL_TEXT_SIZE / 2,
+        ),
+        vec2(TERMINAL_TEXT_SIZE - 3, TERMINAL_TEXT_SIZE - 3),
+        WHITE,
+        0,
+        false,
+        true,
+      );
+    }
   });
 
   drawSourceScrollbar();
@@ -483,7 +533,8 @@ function drawTitleBar(): void {
 
 function drawUsableItems(): void {
   for (const { item, centerX } of usableItemLayouts()) {
-    const isActive = item.id === "source-view" && activeView === "source";
+    const itemView = item.id === "source-view" ? "source" : "memory";
+    const isActive = activeView === itemView;
     drawRect(
       vec2(centerX, HUD_CENTER_Y),
       vec2(ITEM_PANEL_SIZE),

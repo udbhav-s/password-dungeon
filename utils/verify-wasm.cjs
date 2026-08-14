@@ -150,6 +150,29 @@ async function main() {
         successful: true,
       },
     });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room5.js",
+      factoryName: "createRoom5Module",
+      input: "1mpossiblehidd3np4ss",
+      expected: {
+        bufferSize: 20,
+        output: ["Enter password (level 100 impossible version)", "Correct"],
+        successful: true,
+      },
+    });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room5a.js",
+      factoryName: "createRoom5AModule",
+      input: "5",
+      expected: {
+        bufferSize: 4,
+        output: ["this does something", "Adjusted crate size"],
+        successful: true,
+        state: { name: "get_crate_size", value: 5 },
+      },
+    });
   } finally {
     server.close();
   }

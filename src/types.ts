@@ -60,6 +60,16 @@ export interface PressurePlateConfig {
   position: Point;
 }
 
+export interface CrateConfig {
+  position: Point;
+  size: number;
+}
+
+export interface CratePressurePlateConfig extends PressurePlateConfig {
+  id: string;
+  doorId: string;
+}
+
 export interface Player {
   position: Point;
   size: number;
@@ -92,6 +102,9 @@ export interface Room {
   golfBall?: GolfBallConfig;
   golfHole?: GolfHoleConfig;
   pressurePlate?: PressurePlateConfig;
+  crate?: CrateConfig;
+  cratePressurePlates?: CratePressurePlateConfig[];
+  crateResetPlate?: PressurePlateConfig;
 }
 
 export interface Dungeon {

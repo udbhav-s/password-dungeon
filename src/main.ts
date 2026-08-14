@@ -23,6 +23,9 @@ import room2Data from "./data/rooms/room-2.json";
 import room3Data from "./data/rooms/room-3.json";
 import room4Data from "./data/rooms/room-4.json";
 import room5Data from "./data/rooms/room-5.json";
+import room5aData from "./data/rooms/room-5a.json";
+import room5bData from "./data/rooms/room-5b.json";
+import room6Data from "./data/rooms/room-6.json";
 import type {
   Dungeon,
   Door,
@@ -37,6 +40,7 @@ import type {
 import {
   drawComputer,
   getActiveBallSize,
+  getActiveCrateSize,
   hasComputerProgramSucceeded,
   isComputerOpen,
   openComputer,
@@ -57,10 +61,11 @@ import {
 } from "./room-interactions/room2";
 import { Room3Interaction } from "./room-interactions/room3";
 import { Room4Interaction } from "./room-interactions/room4";
+import { Room5AInteraction } from "./room-interactions/room5a";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
-const DEBUG_MODE = false;
-const DEBUG_START_ROOM = "room-4";
+const DEBUG_MODE = true;
+const DEBUG_START_ROOM = "room-5";
 const DEBUG_ENABLED_ITEM_IDS = ["source-view"];
 const DEBUG_CONSOLE = false;
 
@@ -69,12 +74,19 @@ const room2: Room = room2Data as unknown as Room;
 const room3: Room = room3Data as unknown as Room;
 const room4: Room = room4Data as unknown as Room;
 const room5: Room = room5Data as unknown as Room;
+const room5a: Room = room5aData as unknown as Room;
+const room5b: Room = room5bData as unknown as Room;
+const room6: Room = room6Data as unknown as Room;
 
 const room3Interaction = new Room3Interaction(room3, (position, size) =>
   overlapsWall(room3, position, size),
 );
 const room4Interaction = new Room4Interaction(room4, (position, size) =>
   overlapsWall(room4, position, size),
+);
+const room5aInteraction = new Room5AInteraction(room5a, (position, size) =>
+  overlapsWall(room5a, position, size),
+  () => openDialog(["try pushing this crate"]),
 );
 
 const simpleDungeon: Dungeon = {
@@ -87,6 +99,9 @@ const simpleDungeon: Dungeon = {
     [room3.id]: room3,
     [room4.id]: room4,
     [room5.id]: room5,
+    [room5a.id]: room5a,
+    [room5b.id]: room5b,
+    [room6.id]: room6,
   },
 };
 
@@ -242,6 +257,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
 
   if (currentRoom.id === "room-3") room3Interaction.reset();
   if (currentRoom.id === "room-4") room4Interaction.reset();
+  if (currentRoom.id === "room-5a") room5aInteraction.reset();
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(currentRoom, spawn.x, spawn.y);
@@ -358,6 +374,12 @@ function collectItems(): void {
               "you are now able to see the C code that the programs on computers are running",
               "maybe this is useful..?",
             ]
+          : item.id === "memory-view"
+            ? [
+                "You got the memory view item!",
+                "This allows you to see what the program memory looks like for running code",
+                "very cool",
+              ]
           : [`you got ${item.name.toLowerCase()}!`],
       );
     } else {
@@ -479,6 +501,9 @@ function gameUpdate(): void {
       else if (currentRoom.id === "room-4" && activeComputer?.id === "computer-4-right") {
         room4Interaction.syncBallSizeFromProgram(getActiveBallSize());
       }
+      else if (currentRoom.id === "room-5a") {
+        room5aInteraction.syncCrateSizeFromProgram(getActiveCrateSize());
+      }
       else unlockCurrentRoomDoors();
     }
     return;
@@ -488,7 +513,12 @@ function gameUpdate(): void {
   if (isInventoryOpen()) return;
 
   const direction = keyDirection();
+  const playerPositionBeforeMove = { ...player.position };
   const playerMoved = movePlayer(direction);
+  const playerMovement = {
+    x: player.position.x - playerPositionBeforeMove.x,
+    y: player.position.y - playerPositionBeforeMove.y,
+  };
   updatePlayerAnimation(direction, playerMoved);
   collectItems();
   if (currentRoom.id === "room-3") {
@@ -496,6 +526,9 @@ function gameUpdate(): void {
   }
   if (currentRoom.id === "room-4") {
     room4Interaction.update(player.position, player.size, direction);
+  }
+  if (currentRoom.id === "room-5a") {
+    room5aInteraction.update(player.position, player.size, playerMovement);
   }
 
   const currentPlayerTile = playerTile();
@@ -599,6 +632,7 @@ function gameRender(): void {
 
   if (currentRoom.id === "room-3") room3Interaction.draw();
   if (currentRoom.id === "room-4") room4Interaction.draw();
+  if (currentRoom.id === "room-5a") room5aInteraction.draw();
 
   for (const item of roomItems) {
     const position = tileToWorld(currentRoom, item.position.x, item.position.y);

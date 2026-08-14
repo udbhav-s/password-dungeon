@@ -2,5 +2,5 @@
   "id": "simple-dungeon",
   "name": "Simple Dungeon",
   "startRoom": "room-1",
-  "roomIds": ["room-1", "room-2", "room-3", "room-4", "room-5"]
+  "roomIds": ["room-1", "room-2", "room-3", "room-4", "room-5", "room-5a", "room-5b", "room-6"]
 }
