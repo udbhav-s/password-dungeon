@@ -13,6 +13,8 @@ import {
   setCanvasClearColor,
   setCanvasFixedSize,
   setCanvasPixelated,
+  setDebugKey,
+  setDebugWatermark,
   tile,
   timeDelta,
   vec2,
@@ -576,6 +578,10 @@ function updateZoom(): void {
 }
 
 function gameInit(): void {
+  // The engine binds Esc to its own debug overlay, which collides with the
+  // dialog quizzes using Esc to back out. An unmatched key code disables it.
+  setDebugKey("");
+  setDebugWatermark(false);
   setCanvasFixedSize(vec2(CANVAS_PIXELS, CANVAS_PIXELS));
   setCanvasPixelated(true);
   setCanvasClearColor(BLACK);
