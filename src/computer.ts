@@ -52,6 +52,28 @@ const TERMINAL_TEXT_SIZE = 14;
 const TERMINAL_LINE_HEIGHT = 24;
 const SOURCE_SCROLLBAR_WIDTH = 8;
 const SOURCE_SCROLLBAR_MIN_THUMB_HEIGHT = 24;
+const CODE_VIEW_LINES = Math.max(
+  1,
+  Math.floor((HUD_TOP - TITLE_BAR_HEIGHT - TERMINAL_PADDING * 2) / TERMINAL_LINE_HEIGHT),
+);
+
+// Blank lines to put after each source line. The smallest spacing that pushes
+// the program past a single screenful, so no one screenshot holds all of it.
+function blankLinesPerSourceLine(lineCount: number): number {
+  let gap = 1;
+  while (lineCount * (gap + 1) <= CODE_VIEW_LINES) gap += 1;
+  return gap;
+}
+
+/// Prepares a raw .c file for the code view. Vite hands back the file exactly as
+/// it sits on disk, so a CRLF checkout leaves a trailing \r that the image font
+/// has no glyph for and draws as a box. Spacing the lines out on top of that
+/// makes the source awkward to capture and paste somewhere that would solve it.
+function displayLines(source: string): string[] {
+  const lines = source.replace(/\r/g, "").split("\n");
+  const gap = blankLinesPerSourceLine(lines.length);
+  return lines.flatMap((line) => [line, ...Array<string>(gap).fill("")]);
+}
 
 const SPRITE_FRAME_SIZE = 64;
 const SPRITE_PANEL_SIZE = 144;
@@ -154,55 +176,55 @@ interface TabLayout {
 const roomPrograms: Record<string, ProgramDefinition> = {
   "room-1": {
     createManager: () => new Room1ProgramManager(),
-    sourceLines: room1Source.split("\n"),
+    sourceLines: displayLines(room1Source),
     loadingMessage: "loading room1.c...",
   },
   "room-2": {
     createManager: () => new Room2ProgramManager(),
-    sourceLines: room2Source.split("\n"),
+    sourceLines: displayLines(room2Source),
     loadingMessage: "loading room2.c...",
   },
   "room-3": {
     createManager: () => new Room3ProgramManager(),
-    sourceLines: room3Source.split("\n"),
+    sourceLines: displayLines(room3Source),
     loadingMessage: "loading room3.c...",
   },
   "room-4-lock": {
     createManager: () => new Room4ProgramManager(),
-    sourceLines: room4Source.split("\n"),
+    sourceLines: displayLines(room4Source),
     loadingMessage: "loading room4.c...",
   },
   "room-5": {
     createManager: () => new Room5ProgramManager(),
-    sourceLines: room5Source.split("\n"),
+    sourceLines: displayLines(room5Source),
     loadingMessage: "loading room5.c...",
     sourceRedaction: "1mpossiblehidd3np4ss",
   },
   "room-5a": {
     createManager: () => new Room5AProgramManager(),
-    sourceLines: room5aSource.split("\n"),
+    sourceLines: displayLines(room5aSource),
     loadingMessage: "loading room5a.c...",
   },
   "room-6": {
     createManager: () => new Room6ProgramManager(),
-    sourceLines: room6Source.split("\n"),
+    sourceLines: displayLines(room6Source),
     loadingMessage: "loading room6.c...",
     sourceRedaction: "structn4v1gator67",
   },
   "room-7": {
     createManager: () => new Room7ProgramManager(),
-    sourceLines: room7Source.split("\n"),
+    sourceLines: displayLines(room7Source),
     loadingMessage: "loading room7.c...",
     sourceRedaction: "1234567890",
   },
   "room-8": {
     createManager: () => new Room8ProgramManager(),
-    sourceLines: room8Source.split("\n"),
+    sourceLines: displayLines(room8Source),
     loadingMessage: "loading room8.c...",
   },
   "room-9": {
     createManager: () => new Room9ProgramManager(),
-    sourceLines: room9Source.split("\n"),
+    sourceLines: displayLines(room9Source),
     loadingMessage: "loading room9.c...",
     // Boxes out the value of every designated initializer, leaving the field
     // names readable but the contents blank.
@@ -211,7 +233,7 @@ const roomPrograms: Record<string, ProgramDefinition> = {
   },
   "room-10": {
     createManager: () => new Room10ProgramManager(),
-    sourceLines: room10Source.split("\n"),
+    sourceLines: displayLines(room10Source),
     loadingMessage: "loading room10.c...",
     memoryLegend: ROOM_10_LEGEND,
   },
@@ -221,7 +243,7 @@ let computerOpen = false;
 let programManager: ProgramManagerBase = new Room1ProgramManager();
 let activeView: ComputerView = "console";
 let codeScrollOffset = 0;
-let sourceLines = room1Source.split("\n");
+let sourceLines = displayLines(room1Source);
 let loadingMessage = "loading room1.c...";
 let sourceRedaction: string | undefined;
 let sourceRedactionRegex: RegExp | undefined;
@@ -401,12 +423,7 @@ export function getActiveCrateSize(): number | undefined {
 }
 
 function visibleCodeLines(): number {
-  return Math.max(
-    1,
-    Math.floor(
-      (HUD_TOP - TITLE_BAR_HEIGHT - TERMINAL_PADDING * 2) / TERMINAL_LINE_HEIGHT,
-    ),
-  );
+  return CODE_VIEW_LINES;
 }
 
 function maxCodeScrollOffset(): number {
@@ -462,9 +479,15 @@ export function updateComputer(): void {
           ITEM_PANEL_SIZE,
         )
       ) {
-        if (item.id === "ascii-lens") asciiLensActive = !asciiLensActive;
-        else if (item.id === "int-lens") intLensActive = !intLensActive;
-        else if (item.id === "memory-legend") memoryLegendActive = !memoryLegendActive;
+        // The two lenses both reinterpret the hovered line, so only one of them
+        // can be on: switching one on switches the other off.
+        if (item.id === "ascii-lens") {
+          asciiLensActive = !asciiLensActive;
+          if (asciiLensActive) intLensActive = false;
+        } else if (item.id === "int-lens") {
+          intLensActive = !intLensActive;
+          if (intLensActive) asciiLensActive = false;
+        } else if (item.id === "memory-legend") memoryLegendActive = !memoryLegendActive;
         else if (item.id === "source-view") setActiveView("source");
         else if (item.id === "memory-view") setActiveView("memory");
         break;

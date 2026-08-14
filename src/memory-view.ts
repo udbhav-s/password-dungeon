@@ -301,7 +301,8 @@ function drawBuffer(
       );
     }
 
-    // Both lenses can be on at once; the int lens wins the hovered line.
+    // The lenses are mutually exclusive, but guard the order anyway so the int
+    // reading wins if both ever end up set.
     if (hovered && intLensActive) {
       drawIntLine(buffer, lineStart, lineEnd, y, legend);
       continue;
