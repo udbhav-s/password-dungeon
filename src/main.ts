@@ -1,7 +1,6 @@
 import {
   BLACK,
   Color,
-  drawCircle,
   drawRect,
   engineImageFont,
   engineInit,
@@ -23,7 +22,6 @@ import room4Data from "./data/rooms/room-4.json";
 import type {
   Dungeon,
   Door,
-  GolfBallConfig,
   Item,
   Player,
   Point,
@@ -47,6 +45,12 @@ import {
   setTitleScreenSkipped,
   updateTitleScreen,
 } from "./title-screen";
+import { LOCKED_DOOR_DIALOG as ROOM_1_LOCKED_DOOR_DIALOG } from "./room-interactions/room1";
+import {
+  LOCKED_DOOR_DIALOG as ROOM_2_LOCKED_DOOR_DIALOG,
+  onEnter as onEnterRoom2,
+} from "./room-interactions/room2";
+import { Room3Interaction } from "./room-interactions/room3";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
 const DEBUG_MODE = false;
@@ -57,6 +61,10 @@ const room1: Room = room1Data as unknown as Room;
 const room2: Room = room2Data as unknown as Room;
 const room3: Room = room3Data as unknown as Room;
 const room4: Room = room4Data as unknown as Room;
+
+const room3Interaction = new Room3Interaction(room3, (position, size) =>
+  overlapsWall(room3, position, size),
+);
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -79,9 +87,6 @@ const player: Player = {
 };
 
 const ZOOM_STEP = 0.1;
-const BALL_SIZE_TO_WORLD = 0.1;
-// The ball can enter the hole only when its C-program size is below this value.
-const ROOM_3_HOLE_MAX_BALL_SIZE = 10;
 // Fixed for now; a future player-progression system can raise/lower these.
 let minZoom = 1.6;
 let maxZoom = 2.5;
@@ -94,21 +99,6 @@ let transitionCooldown = 0;
 let previousPlayerTile: Point = { x: 0, y: 0 };
 let lockedDoorDialogShown = false;
 let debugOverlayVisible = false;
-
-interface GolfBallState {
-  position: Point;
-  startPosition: Point;
-  velocity: Point;
-  size: number;
-  initialSize: number;
-  friction: number;
-  acceleration: number;
-  wallBounciness: number;
-  inHole: boolean;
-}
-
-let golfBall: GolfBallState | undefined;
-let pressurePlatePressed = false;
 
 function applyDebugConfiguration(): void {
   player.inventory.length = 0;
@@ -229,8 +219,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
     .filter((item) => !collectedItemIds.has(item.id))
     .map((item) => ({ ...item, position: { ...item.position } }));
 
-  golfBall = currentRoom.golfBall ? createGolfBallState(currentRoom.golfBall) : undefined;
-  pressurePlatePressed = false;
+  if (currentRoom.id === "room-3") room3Interaction.reset();
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(currentRoom, spawn.x, spawn.y);
@@ -240,154 +229,19 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   applyZoom();
   setCameraPos(vec2(player.position.x, player.position.y));
   console.log(`Entered ${currentRoom.name}.`);
-
-  if (currentRoom.id === "room-2") {
-    openDialog(["this is the second room", "look around i guess"]);
-  }
+  if (currentRoom.id === "room-2") onEnterRoom2();
 }
 
-function createGolfBallState(config: GolfBallConfig): GolfBallState {
-  const worldPosition = tileToWorld(currentRoom, config.position.x, config.position.y);
-  return {
-    position: { ...worldPosition },
-    startPosition: { ...worldPosition },
-    velocity: { x: 0, y: 0 },
-    size: config.size,
-    initialSize: config.size,
-    friction: config.friction,
-    acceleration: config.acceleration,
-    wallBounciness: config.wallBounciness,
-    inHole: false,
-  };
-}
-
-function resetGolfBall(): void {
-  if (!golfBall) return;
-  golfBall.position = { ...golfBall.startPosition };
-  golfBall.velocity = { x: 0, y: 0 };
-  golfBall.size = golfBall.initialSize;
-  golfBall.inHole = false;
-}
-
-function updatePressurePlate(): void {
-  const plate = currentRoom.pressurePlate;
-  if (!plate) {
-    pressurePlatePressed = false;
-    return;
-  }
-
-  const plateWorld = tileToWorld(currentRoom, plate.position.x, plate.position.y);
-  const distance = Math.hypot(
-    player.position.x - plateWorld.x,
-    player.position.y - plateWorld.y,
-  );
-  const pressed = distance <= player.size / 2 + 0.35;
-  if (pressed && !pressurePlatePressed) resetGolfBall();
-  pressurePlatePressed = pressed;
-}
-
-function golfBallWorldSize(): number {
-  return (golfBall?.size ?? 0) * BALL_SIZE_TO_WORLD;
-}
-
-function moveGolfBallAxis(axis: "x" | "y", amount: number, size: number): boolean {
-  if (!golfBall || amount === 0) return true;
-
-  const start = { ...golfBall.position };
-  const next = { ...start };
-  next[axis] += amount;
-  if (!overlapsWall(next, size)) {
-    golfBall.position[axis] = next[axis];
-    return true;
-  }
-
-  // Stop at the nearest valid point instead of leaving the ball embedded in a wall.
-  if (overlapsWall(start, size)) return false;
-  let low = 0;
-  let high = 1;
-  for (let iteration = 0; iteration < 12; iteration += 1) {
-    const middle = (low + high) / 2;
-    const candidate = { ...start };
-    candidate[axis] += amount * middle;
-    if (overlapsWall(candidate, size)) high = middle;
-    else low = middle;
-  }
-
-  const resolved = { ...start };
-  resolved[axis] += amount * low;
-  golfBall.position[axis] = resolved[axis];
-  return false;
-}
-
-function updateGolfBall(direction: { x: number; y: number }): void {
-  if (!golfBall || golfBall.inHole) return;
-
-  const ballSize = golfBallWorldSize();
-  const playerToBall = {
-    x: golfBall.position.x - player.position.x,
-    y: golfBall.position.y - player.position.y,
-  };
-  const distance = Math.hypot(playerToBall.x, playerToBall.y);
-  const minimumDistance = player.size / 2 + ballSize / 2;
-
-  if ((direction.x !== 0 || direction.y !== 0) && distance < minimumDistance) {
-    const directionLength = Math.hypot(direction.x, direction.y) || 1;
-    const pushDirection =
-      distance > 0.001
-        ? { x: playerToBall.x / distance, y: playerToBall.y / distance }
-        : { x: direction.x / directionLength, y: direction.y / directionLength };
-    const overlap = minimumDistance - distance + 0.01;
-    moveGolfBallAxis("x", pushDirection.x * overlap, ballSize);
-    moveGolfBallAxis("y", pushDirection.y * overlap, ballSize);
-    golfBall.velocity.x += pushDirection.x * golfBall.acceleration;
-    golfBall.velocity.y += pushDirection.y * golfBall.acceleration;
-  }
-
-  const friction = Math.max(0, 1 - golfBall.friction * timeDelta);
-  golfBall.velocity.x *= friction;
-  golfBall.velocity.y *= friction;
-
-  const movedX = moveGolfBallAxis("x", golfBall.velocity.x * timeDelta, ballSize);
-  if (!movedX) {
-    golfBall.velocity.x *= -golfBall.wallBounciness;
-  }
-
-  const movedY = moveGolfBallAxis("y", golfBall.velocity.y * timeDelta, ballSize);
-  if (!movedY) {
-    golfBall.velocity.y *= -golfBall.wallBounciness;
-  }
-
-  const hole = currentRoom.golfHole;
-  if (!hole || golfBall.size >= ROOM_3_HOLE_MAX_BALL_SIZE) return;
-  const holeWorld = tileToWorld(currentRoom, hole.position.x, hole.position.y);
-  const holeDistance = Math.hypot(
-    golfBall.position.x - holeWorld.x,
-    golfBall.position.y - holeWorld.y,
-  );
-  if (holeDistance <= hole.size / 2 + ballSize / 2) {
-    golfBall.position = { ...holeWorld };
-    golfBall.velocity = { x: 0, y: 0 };
-    golfBall.inHole = true;
-  }
-}
-
-function syncGolfBallSizeFromProgram(): void {
-  if (!golfBall || currentRoom.id !== "room-3") return;
-  const nextSize = getRoom3BallSize();
-  if (nextSize === undefined) return;
-  golfBall.size = nextSize;
-}
-
-function overlapsWall(position: { x: number; y: number }, size = player.size): boolean {
+function overlapsWall(room: Room, position: { x: number; y: number }, size = player.size): boolean {
   const halfSize = size / 2;
-  const left = Math.floor(position.x - halfSize + currentRoom.width / 2);
-  const right = Math.floor(position.x + halfSize + currentRoom.width / 2);
-  const top = Math.floor(currentRoom.height / 2 - (position.y + halfSize));
-  const bottom = Math.floor(currentRoom.height / 2 - (position.y - halfSize));
+  const left = Math.floor(position.x - halfSize + room.width / 2);
+  const right = Math.floor(position.x + halfSize + room.width / 2);
+  const top = Math.floor(room.height / 2 - (position.y + halfSize));
+  const bottom = Math.floor(room.height / 2 - (position.y - halfSize));
 
   for (let y = top; y <= bottom; y += 1) {
     for (let x = left; x <= right; x += 1) {
-      if (isWallTile(currentRoom, x, y)) return true;
+      if (isWallTile(room, x, y)) return true;
     }
   }
 
@@ -404,10 +258,10 @@ function movePlayer(direction: { x: number; y: number }): void {
   };
 
   const nextX = { x: player.position.x + velocity.x, y: player.position.y };
-  if (!overlapsWall(nextX)) player.position.x = nextX.x;
+  if (!overlapsWall(currentRoom, nextX)) player.position.x = nextX.x;
 
   const nextY = { x: player.position.x, y: player.position.y + velocity.y };
-  if (!overlapsWall(nextY)) player.position.y = nextY.y;
+  if (!overlapsWall(currentRoom, nextY)) player.position.y = nextY.y;
 }
 
 function findBoundaryDoor(): Door | undefined {
@@ -537,7 +391,9 @@ function gameUpdate(): void {
   if (isComputerOpen()) {
     updateComputer();
     if (hasComputerProgramSucceeded()) {
-      if (currentRoom.id === "room-3") syncGolfBallSizeFromProgram();
+      if (currentRoom.id === "room-3") {
+        room3Interaction.syncBallSizeFromProgram(getRoom3BallSize());
+      }
       else unlockCurrentRoomDoors();
     }
     return;
@@ -549,8 +405,9 @@ function gameUpdate(): void {
   const direction = keyDirection();
   movePlayer(direction);
   collectItems();
-  updatePressurePlate();
-  updateGolfBall(direction);
+  if (currentRoom.id === "room-3") {
+    room3Interaction.update(player.position, player.size, direction);
+  }
 
   const currentPlayerTile = playerTile();
   if (isLavaTile(currentRoom, currentPlayerTile.x, currentPlayerTile.y)) {
@@ -564,8 +421,8 @@ function gameUpdate(): void {
   if (enteredLockedDoorAdjacentTile()) {
     openDialog(
       currentRoom.id === "room-2"
-        ? ["this one is also locked..."]
-        : ["hmm.. this door seems locked.", "maybe it needs a password to open?"],
+        ? ROOM_2_LOCKED_DOOR_DIALOG
+        : ROOM_1_LOCKED_DOOR_DIALOG,
     );
     return;
   }
@@ -579,49 +436,6 @@ function gameUpdate(): void {
     const door = findBoundaryDoor();
     if (door) loadRoom(door.toRoom, door.entry);
   }
-}
-
-function drawGolfHole(): void {
-  const hole = currentRoom.golfHole;
-  if (!hole) return;
-
-  const position = tileToWorld(currentRoom, hole.position.x, hole.position.y);
-  drawCircle(vec2(position.x, position.y), hole.size, parseColor("#151515"));
-  drawRect(
-    vec2(position.x + 0.45, position.y + 0.75),
-    vec2(0.08, 1.5),
-    parseColor("#f5f5f5"),
-  );
-  drawRect(
-    vec2(position.x + 0.2, position.y + 1.3),
-    vec2(0.55, 0.3),
-    parseColor("#e74c3c"),
-  );
-}
-
-function drawPressurePlate(): void {
-  const plate = currentRoom.pressurePlate;
-  if (!plate) return;
-
-  const position = tileToWorld(currentRoom, plate.position.x, plate.position.y);
-  drawRect(
-    vec2(position.x, position.y),
-    vec2(0.85),
-    parseColor(pressurePlatePressed ? "#6b4a00" : "#a87500"),
-  );
-}
-
-function drawGolfBall(): void {
-  if (!golfBall || golfBall.inHole) return;
-
-  drawCircle(
-    vec2(golfBall.position.x, golfBall.position.y),
-    golfBallWorldSize(),
-    parseColor("#f5f5f5"),
-    0.06,
-    parseColor("#bdbdbd"),
-    false,
-  );
 }
 
 function drawDebugOverlay(): void {
@@ -689,9 +503,7 @@ function gameRender(): void {
     }
   }
 
-  drawGolfHole();
-  drawPressurePlate();
-  drawGolfBall();
+  if (currentRoom.id === "room-3") room3Interaction.draw();
 
   for (const item of roomItems) {
     const position = tileToWorld(currentRoom, item.position.x, item.position.y);
