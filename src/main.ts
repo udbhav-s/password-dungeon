@@ -26,6 +26,13 @@ import room5Data from "./data/rooms/room-5.json";
 import room5aData from "./data/rooms/room-5a.json";
 import room5bData from "./data/rooms/room-5b.json";
 import room6Data from "./data/rooms/room-6.json";
+import room7Data from "./data/rooms/room-7.json";
+import room7aData from "./data/rooms/room-7a.json";
+import room8Data from "./data/rooms/room-8.json";
+import room8aData from "./data/rooms/room-8a.json";
+import room9Data from "./data/rooms/room-9.json";
+import room9aData from "./data/rooms/room-9a.json";
+import room10Data from "./data/rooms/room-10.json";
 import type {
   Dungeon,
   Door,
@@ -63,11 +70,34 @@ import { Room3Interaction } from "./room-interactions/room3";
 import { Room4Interaction } from "./room-interactions/room4";
 import { Room5AInteraction } from "./room-interactions/room5a";
 import { Room5BInteraction } from "./room-interactions/room5b";
+import { Room7AInteraction } from "./room-interactions/room7a";
+import {
+  checkMirrorGoal,
+  drawMirrorRoom,
+  getMirrorPlayerTile,
+  isMirrorRoom,
+  MIRROR_PLAYER_SIZE,
+  resetMirrorRoom,
+  updateMirrorPlayer,
+} from "./mirror-room";
+import {
+  consumePressurePuzzleFailure,
+  drawPressurePads,
+  hasPressurePuzzleSucceeded,
+  resetPressurePuzzle,
+  updatePressurePuzzle,
+} from "./pressure-puzzle";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
 const DEBUG_MODE = false;
 const DEBUG_START_ROOM = "room-5";
-const DEBUG_ENABLED_ITEM_IDS = ["source-view", "memory-view", "ascii-lens"];
+const DEBUG_ENABLED_ITEM_IDS = [
+  "source-view",
+  "memory-view",
+  "ascii-lens",
+  "int-lens",
+  "memory-legend",
+];
 const DEBUG_CONSOLE = false;
 
 const room1: Room = room1Data as unknown as Room;
@@ -78,6 +108,13 @@ const room5: Room = room5Data as unknown as Room;
 const room5a: Room = room5aData as unknown as Room;
 const room5b: Room = room5bData as unknown as Room;
 const room6: Room = room6Data as unknown as Room;
+const room7: Room = room7Data as unknown as Room;
+const room7a: Room = room7aData as unknown as Room;
+const room8: Room = room8Data as unknown as Room;
+const room8a: Room = room8aData as unknown as Room;
+const room9: Room = room9Data as unknown as Room;
+const room9a: Room = room9aData as unknown as Room;
+const room10: Room = room10Data as unknown as Room;
 
 const room3Interaction = new Room3Interaction(room3, (position, size) =>
   overlapsWall(room3, position, size),
@@ -91,7 +128,11 @@ const room5aInteraction = new Room5AInteraction(room5a, (position, size) =>
 );
 const room5bInteraction = new Room5BInteraction(
   () => player.inventory.some((item) => item.id === "memory-view"),
-  () => awardAsciiLens(),
+  () => awardQuizItem("ascii-lens"),
+);
+const room7aInteraction = new Room7AInteraction(
+  () => player.inventory.some((item) => item.id === "memory-view"),
+  () => awardQuizItem("int-lens"),
 );
 
 const simpleDungeon: Dungeon = {
@@ -107,6 +148,13 @@ const simpleDungeon: Dungeon = {
     [room5a.id]: room5a,
     [room5b.id]: room5b,
     [room6.id]: room6,
+    [room7.id]: room7,
+    [room7a.id]: room7a,
+    [room8.id]: room8,
+    [room8a.id]: room8a,
+    [room9.id]: room9,
+    [room9a.id]: room9a,
+    [room10.id]: room10,
   },
 };
 
@@ -119,6 +167,7 @@ const player: Player = {
 };
 
 const ZOOM_STEP = 0.1;
+const CANVAS_PIXELS = 1024;
 const CAMERA_SCALE_BASE = 48;
 const PLAYER_SPRITE_FRAME_SIZE = 64;
 const PLAYER_SPRITE_TEXTURE_INDEX = 1;
@@ -266,6 +315,8 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   if (currentRoom.id === "room-3") room3Interaction.reset();
   if (currentRoom.id === "room-4") room4Interaction.reset();
   if (currentRoom.id === "room-5a") room5aInteraction.reset();
+  resetPressurePuzzle(currentRoom);
+  resetMirrorRoom(currentRoom);
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(currentRoom, spawn.x, spawn.y);
@@ -273,7 +324,8 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
   previousPlayerTile = playerTile();
   transitionCooldown = 0.25;
   applyZoom();
-  setCameraPos(vec2(player.position.x, player.position.y));
+  const camera = cameraTarget();
+  setCameraPos(vec2(camera.x, camera.y));
   console.log(`Entered ${currentRoom.name}.`);
   if (currentRoom.id === "room-2") onEnterRoom2();
 }
@@ -363,16 +415,23 @@ function findBoundaryDoor(): Door | undefined {
   return undefined;
 }
 
+// Items guarded by a quiz are never picked up by walking into them; the
+// matching room interaction awards them once its questions are answered.
+const QUIZ_ITEM_IDS = new Set(["ascii-lens", "int-lens", "memory-legend"]);
+
 function collectItems(): void {
   const playerWorld = player.position;
   const remainingItems: Item[] = [];
   let asciiLensNearby = false;
+  let intLensNearby = false;
 
   for (const item of roomItems) {
     const itemWorld = tileToWorld(currentRoom, item.position.x, item.position.y);
     const distance = Math.hypot(playerWorld.x - itemWorld.x, playerWorld.y - itemWorld.y);
-    if (item.id === "ascii-lens") {
-      asciiLensNearby = distance < player.size / 2 + 0.35;
+    if (QUIZ_ITEM_IDS.has(item.id)) {
+      const nearby = distance < player.size / 2 + 0.35;
+      if (item.id === "ascii-lens") asciiLensNearby = nearby;
+      else if (item.id === "int-lens") intLensNearby = nearby;
       remainingItems.push(item);
       continue;
     }
@@ -403,11 +462,12 @@ function collectItems(): void {
 
   roomItems = remainingItems;
   room5bInteraction.updateItemProximity(asciiLensNearby);
+  room7aInteraction.updateItemProximity(intLensNearby);
 }
 
-function awardAsciiLens(): void {
-  if (collectedItemIds.has("ascii-lens")) return;
-  const item = roomItems.find((candidate) => candidate.id === "ascii-lens");
+function awardQuizItem(itemId: string): void {
+  if (collectedItemIds.has(itemId)) return;
+  const item = roomItems.find((candidate) => candidate.id === itemId);
   if (!item) return;
   player.inventory.push(item);
   collectedItemIds.add(item.id);
@@ -470,18 +530,29 @@ function unlockCurrentRoomDoors(): void {
   if (unlockedDoor) console.log(`Unlocked the doors in ${currentRoom.name}.`);
 }
 
+// Mirror rooms need both bodies on screen at once, so they ignore the player
+// zoom and fit the whole room instead.
+function cameraTarget(): Point {
+  return currentRoom.fixedZoom ? { x: 0, y: 0 } : { x: player.position.x, y: player.position.y };
+}
+
 function applyZoom(): void {
+  if (currentRoom.fixedZoom) {
+    setCameraScale(CANVAS_PIXELS / Math.max(currentRoom.width, currentRoom.height));
+    return;
+  }
   setCameraScale(CAMERA_SCALE_BASE * zoomLevel);
 }
 
 function updateZoom(): void {
+  if (currentRoom.fixedZoom) return;
   if (mouseWheel === 0) return;
   zoomLevel = Math.min(maxZoom, Math.max(minZoom, zoomLevel - mouseWheel * ZOOM_STEP));
   applyZoom();
 }
 
 function gameInit(): void {
-  setCanvasFixedSize(vec2(1024, 1024));
+  setCanvasFixedSize(vec2(CANVAS_PIXELS, CANVAS_PIXELS));
   setCanvasPixelated(true);
   setCanvasClearColor(BLACK);
   applyZoom();
@@ -508,7 +579,8 @@ function gameUpdate(): void {
   }
 
   if (!isComputerOpen()) updateZoom();
-  setCameraPos(vec2(player.position.x, player.position.y));
+  const camera = cameraTarget();
+  setCameraPos(vec2(camera.x, camera.y));
   transitionCooldown = Math.max(0, transitionCooldown - timeDelta);
 
   if (isDialogOpen()) {
@@ -547,6 +619,9 @@ function gameUpdate(): void {
     y: player.position.y - playerPositionBeforeMove.y,
   };
   updatePlayerAnimation(direction, playerMoved);
+  updateMirrorPlayer(currentRoom, direction, player.speed, (position) =>
+    overlapsWall(currentRoom, position, MIRROR_PLAYER_SIZE),
+  );
   collectItems();
   if (currentRoom.id === "room-3") {
     room3Interaction.update(player.position, player.size, direction);
@@ -558,11 +633,36 @@ function gameUpdate(): void {
     room5aInteraction.update(player.position, player.size, playerMovement);
   }
 
-  const currentPlayerTile = playerTile();
-  if (isLavaTile(currentRoom, currentPlayerTile.x, currentPlayerTile.y)) {
+  updatePressurePuzzle(currentRoom, playerTile());
+  if (consumePressurePuzzleFailure()) {
     const spawn = tileToWorld(currentRoom, currentRoom.playerStart.x, currentRoom.playerStart.y);
     player.position = { x: spawn.x, y: spawn.y };
     previousPlayerTile = playerTile();
+  }
+  if (hasPressurePuzzleSucceeded()) unlockCurrentRoomDoors();
+
+  const currentPlayerTile = playerTile();
+  // In a mirror room either body touching lava sends both back to the start.
+  const mirrorTile = isMirrorRoom(currentRoom) ? getMirrorPlayerTile(currentRoom) : undefined;
+  if (
+    isLavaTile(currentRoom, currentPlayerTile.x, currentPlayerTile.y) ||
+    (mirrorTile && isLavaTile(currentRoom, mirrorTile.x, mirrorTile.y))
+  ) {
+    const spawn = tileToWorld(currentRoom, currentRoom.playerStart.x, currentRoom.playerStart.y);
+    player.position = { x: spawn.x, y: spawn.y };
+    previousPlayerTile = playerTile();
+    resetMirrorRoom(currentRoom);
+  } else if (checkMirrorGoal(currentRoom)) {
+    unlockCurrentRoomDoors();
+    if (currentRoom.id === "room-9a") {
+      awardQuizItem("memory-legend");
+      openDialog([
+        "The reflection reaches the pedestal, and the thing in its hands appears in yours",
+        "You got the MEMORY LEGEND",
+        "In memory view, every byte is now tinted by the field it belongs to",
+        "Hover a byte to see which variable owns it",
+      ]);
+    }
   }
 
   if (isDialogOpen()) return;
@@ -665,6 +765,8 @@ function gameRender(): void {
   if (currentRoom.id === "room-3") room3Interaction.draw();
   if (currentRoom.id === "room-4") room4Interaction.draw();
   if (currentRoom.id === "room-5a") room5aInteraction.draw();
+  drawPressurePads(currentRoom);
+  drawMirrorRoom(currentRoom, parseColor);
 
   for (const item of roomItems) {
     const position = tileToWorld(currentRoom, item.position.x, item.position.y);

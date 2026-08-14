@@ -43,6 +43,29 @@ export interface Item {
   position: Point;
 }
 
+export interface PressurePad {
+  id: string;
+  /// Bit position within the target value; pads sharing a pairIndex are the two
+  /// plates of one on/off switch (one plate per possible bit value).
+  pairIndex: number;
+  value: 0 | 1;
+  position: Point;
+}
+
+export interface PressureButton {
+  id: string;
+  position: Point;
+}
+
+/// One named region of a program's exposed memory buffer, used by the Memory
+/// Legend to label which bytes belong to which struct field.
+export interface MemoryField {
+  name: string;
+  type: string;
+  offset: number;
+  size: number;
+}
+
 export interface GolfBallConfig {
   position: Point;
   size: number;
@@ -120,6 +143,19 @@ export interface Room {
   crate?: CrateConfig;
   cratePressurePlates?: CratePressurePlateConfig[];
   crateResetPlate?: PressurePlateConfig;
+  pressurePads?: PressurePad[];
+  pressureButton?: PressureButton;
+  /// Value the pads must spell out in binary (bit N == pad pairIndex N's active
+  /// value) for the button to unlock this room's doors.
+  pressureTarget?: number;
+  /// Presence of a mirror player spawn makes this a mirror room: a second entity
+  /// that moves in lockstep with the player's input but has its own position and
+  /// collisions.
+  mirrorPlayerStart?: Point;
+  /// Tile the mirror player must reach to clear this room.
+  mirrorGoal?: Point;
+  /// Overrides the normal scroll-zoom and fits the whole room on screen at once.
+  fixedZoom?: boolean;
 }
 
 export interface Dungeon {

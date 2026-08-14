@@ -16,6 +16,9 @@ import room3Source from "../c_levels/room3.c?raw";
 import room4Source from "../c_levels/room4.c?raw";
 import room5Source from "../c_levels/room5.c?raw";
 import room5aSource from "../c_levels/room5a.c?raw";
+import room7Source from "../c_levels/room7.c?raw";
+import room8Source from "../c_levels/room8.c?raw";
+import room9Source from "../c_levels/room9.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
@@ -23,7 +26,10 @@ import { Room3ProgramManager } from "./programs/room3";
 import { Room4ProgramManager } from "./programs/room4";
 import { Room5ProgramManager } from "./programs/room5";
 import { Room5AProgramManager } from "./programs/room5a";
-import type { Item } from "./types";
+import { Room7ProgramManager } from "./programs/room7";
+import { Room8ProgramManager } from "./programs/room8";
+import { Room9ProgramManager } from "./programs/room9";
+import type { Item, MemoryField } from "./types";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
 const CANVAS_PIXELS = 1024;
@@ -68,7 +74,51 @@ interface ProgramDefinition {
   sourceLines: string[];
   loadingMessage: string;
   sourceRedaction?: string;
+  /// Regex source applied per source line; every match is boxed out. Use this
+  /// instead of sourceRedaction when a program has many values to hide.
+  sourceRedactionPattern?: string;
+  /// Field layout of the buffer this program exposes, revealed by the Memory Legend.
+  memoryLegend?: MemoryField[];
 }
+
+/// Lays fields out back to back, so a legend can never disagree with itself
+/// about where a field starts.
+function structLegend(fields: readonly (readonly [string, string, number])[]): MemoryField[] {
+  let offset = 0;
+  return fields.map(([name, type, size]) => {
+    const field: MemoryField = { name, type, offset, size };
+    offset += size;
+    return field;
+  });
+}
+
+// Mirrors the field order of ImportantData in c_levels/room9.c.
+const ROOM_9_LEGEND = structLegend([
+  ["pass", "char[4]", 4],
+  ["stuff", "char[4]", 4],
+  ["howManyPushUpsIcanDo", "int", 4],
+  ["pagesInMyNewBook", "int", 4],
+  ["cupsOfCoffeeToday", "int", 4],
+  ["stepsToTheFridge", "int", 4],
+  ["unreadEmails", "int", 4],
+  ["socksInTheDrawer", "int", 4],
+  ["highScore", "int", 4],
+  ["daysSinceLastBug", "int", 4],
+  ["printerJamCount", "int", 4],
+  ["lunchBudget", "int", 4],
+  ["keyboardsDestroyed", "int", 4],
+  ["hoursOfSleep", "int", 4],
+  ["tabsOpen", "int", 4],
+  ["plantsStillAlive", "int", 4],
+  ["passwordNumber", "int", 4],
+  ["meetingsThisWeek", "int", 4],
+  ["rubberDucks", "int", 4],
+  ["linesOfCommentedCode", "int", 4],
+  ["cablesInTheDrawer", "int", 4],
+  ["semicolonsForgotten", "int", 4],
+  ["snacksRemaining", "int", 4],
+  ["excusesPrepared", "int", 4],
+]);
 
 interface UsableItemLayout {
   item: Item;
@@ -113,6 +163,26 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     sourceLines: room5aSource.split("\n"),
     loadingMessage: "loading room5a.c...",
   },
+  "room-7": {
+    createManager: () => new Room7ProgramManager(),
+    sourceLines: room7Source.split("\n"),
+    loadingMessage: "loading room7.c...",
+    sourceRedaction: "1234567890",
+  },
+  "room-8": {
+    createManager: () => new Room8ProgramManager(),
+    sourceLines: room8Source.split("\n"),
+    loadingMessage: "loading room8.c...",
+  },
+  "room-9": {
+    createManager: () => new Room9ProgramManager(),
+    sourceLines: room9Source.split("\n"),
+    loadingMessage: "loading room9.c...",
+    // Boxes out the value of every designated initializer, leaving the field
+    // names readable but the contents blank.
+    sourceRedactionPattern: "(?<=\\.\\w+ = )[^,]+",
+    memoryLegend: ROOM_9_LEGEND,
+  },
 };
 
 let computerOpen = false;
@@ -122,8 +192,12 @@ let codeScrollOffset = 0;
 let sourceLines = room1Source.split("\n");
 let loadingMessage = "loading room1.c...";
 let sourceRedaction: string | undefined;
+let sourceRedactionRegex: RegExp | undefined;
+let memoryLegend: MemoryField[] | undefined;
 let usableItems: Item[] = [];
 let asciiLensActive = false;
+let intLensActive = false;
+let memoryLegendActive = false;
 let typingFrame = 0;
 const typingKeys = new Set<string>();
 
@@ -256,13 +330,21 @@ export function openComputer(programId: string, inventory: readonly Item[]): voi
   sourceLines = program.sourceLines;
   loadingMessage = program.loadingMessage;
   sourceRedaction = program.sourceRedaction;
+  sourceRedactionRegex = program.sourceRedactionPattern
+    ? new RegExp(program.sourceRedactionPattern, "g")
+    : undefined;
+  memoryLegend = program.memoryLegend;
   usableItems = inventory.filter(
     (item) =>
       item.id === "source-view" ||
       item.id === "memory-view" ||
-      item.id === "ascii-lens",
+      item.id === "ascii-lens" ||
+      item.id === "int-lens" ||
+      item.id === "memory-legend",
   );
   asciiLensActive = false;
+  intLensActive = false;
+  memoryLegendActive = false;
   resetTypingFrame();
   resetMemoryView(programManager);
   void programManager.start();
@@ -346,11 +428,13 @@ export function updateComputer(): void {
           HUD_CENTER_Y,
           ITEM_PANEL_SIZE,
           ITEM_PANEL_SIZE,
-        ) &&
-        (item.id === "source-view" || item.id === "memory-view" || item.id === "ascii-lens")
+        )
       ) {
         if (item.id === "ascii-lens") asciiLensActive = !asciiLensActive;
-        else setActiveView(item.id === "source-view" ? "source" : "memory");
+        else if (item.id === "int-lens") intLensActive = !intLensActive;
+        else if (item.id === "memory-legend") memoryLegendActive = !memoryLegendActive;
+        else if (item.id === "source-view") setActiveView("source");
+        else if (item.id === "memory-view") setActiveView("memory");
         break;
       }
     }
@@ -396,32 +480,61 @@ function drawTerminal(): void {
   drawTerminalText(`> ${programManager.inputText}_`, TERMINAL_PADDING, inputY);
 }
 
+interface RedactionRange {
+  start: number;
+  length: number;
+}
+
+// Character ranges of a source line to box out: either the one fixed secret
+// string, or every match of the program's redaction pattern.
+function redactionRanges(line: string): RedactionRange[] {
+  if (sourceRedaction) {
+    const start = line.indexOf(sourceRedaction);
+    return start < 0 ? [] : [{ start, length: sourceRedaction.length }];
+  }
+
+  if (!sourceRedactionRegex) return [];
+  sourceRedactionRegex.lastIndex = 0;
+  const ranges: RedactionRange[] = [];
+  for (const match of line.matchAll(sourceRedactionRegex)) {
+    if (match.index === undefined || match[0].length === 0) continue;
+    ranges.push({ start: match.index, length: match[0].length });
+  }
+  return ranges;
+}
+
 function drawCodeView(): void {
   const firstLineY = TITLE_BAR_HEIGHT + TERMINAL_PADDING;
   const lines = sourceLines.slice(codeScrollOffset, codeScrollOffset + visibleCodeLines());
 
   lines.forEach((line, index) => {
     const y = firstLineY + index * TERMINAL_LINE_HEIGHT;
-    const redactionStart = sourceRedaction ? line.indexOf(sourceRedaction) : -1;
-    if (redactionStart < 0 || !sourceRedaction) {
+    const ranges = redactionRanges(line);
+    if (ranges.length === 0) {
       drawTerminalText(line, TERMINAL_PADDING, y);
       return;
     }
 
-    const hiddenLine = `${line.slice(0, redactionStart)}${" ".repeat(sourceRedaction.length)}${line.slice(redactionStart + sourceRedaction.length)}`;
+    let hiddenLine = line;
+    for (const range of ranges) {
+      hiddenLine = `${hiddenLine.slice(0, range.start)}${" ".repeat(range.length)}${hiddenLine.slice(range.start + range.length)}`;
+    }
     drawTerminalText(hiddenLine, TERMINAL_PADDING, y);
-    for (let character = 0; character < sourceRedaction.length; character += 1) {
-      drawRect(
-        vec2(
-          TERMINAL_PADDING + (redactionStart + character + 0.5) * TERMINAL_TEXT_SIZE,
-          y + TERMINAL_TEXT_SIZE / 2,
-        ),
-        vec2(TERMINAL_TEXT_SIZE - 3, TERMINAL_TEXT_SIZE - 3),
-        WHITE,
-        0,
-        false,
-        true,
-      );
+
+    for (const range of ranges) {
+      for (let character = 0; character < range.length; character += 1) {
+        drawRect(
+          vec2(
+            TERMINAL_PADDING + (range.start + character + 0.5) * TERMINAL_TEXT_SIZE,
+            y + TERMINAL_TEXT_SIZE / 2,
+          ),
+          vec2(TERMINAL_TEXT_SIZE - 3, TERMINAL_TEXT_SIZE - 3),
+          WHITE,
+          0,
+          false,
+          true,
+        );
+      }
     }
   });
 
@@ -540,9 +653,14 @@ function drawTitleBar(): void {
 
 function drawUsableItems(): void {
   for (const { item, centerX } of usableItemLayouts()) {
-    const itemView = item.id === "source-view" ? "source" : "memory";
     const isActive =
-      item.id === "ascii-lens" ? asciiLensActive : activeView === itemView;
+      item.id === "ascii-lens"
+        ? asciiLensActive
+        : item.id === "int-lens"
+          ? intLensActive
+          : item.id === "memory-legend"
+            ? memoryLegendActive
+            : activeView === (item.id === "source-view" ? "source" : "memory");
     drawRect(
       vec2(centerX, HUD_CENTER_Y),
       vec2(ITEM_PANEL_SIZE),
@@ -596,7 +714,9 @@ export function drawComputer(): void {
   );
 
   if (activeView === "source") drawCodeView();
-  else if (activeView === "memory") drawMemoryView(asciiLensActive);
+  else if (activeView === "memory") {
+    drawMemoryView(asciiLensActive, intLensActive, memoryLegendActive ? memoryLegend : undefined);
+  }
   else drawTerminal();
   drawTitleBar();
   drawHud();

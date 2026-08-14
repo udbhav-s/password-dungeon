@@ -1,0 +1,65 @@
+{
+  "id": "room-9a",
+  "name": "The Looking-Glass Vault",
+  "width": 32,
+  "height": 32,
+  "wallColor": "#4a4a6b",
+  "floorColor": "#141422",
+  "playerStart": { "x": 3.5, "y": 30.5 },
+  "tiles": [
+    "################################",
+    "#LLLLLLLLLL...L############...##",
+    "#LLLLLLLLLL...L############...##",
+    "#LLLLLLLLLL...L############...##",
+    "#LLLL.........L############...##",
+    "#LLLL.........L######.........##",
+    "#LLLL...LLLLLLL######...########",
+    "#LLLL...LLLLLLL######...########",
+    "#LLLL...LLLLLLL######...########",
+    "#LLLL...LLLLLLL######...########",
+    "#LLLL...LLLLLLL######...########",
+    "#LLLL...LLLLLLL######...########",
+    "#LLLL.........L######...########",
+    "#LLLL.........L######........###",
+    "#LLLL.........L######...###..###",
+    "#LLLL.........L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L#########..#..###",
+    "#LLLLLLL......L###........#..###",
+    "#LLLLLLL......L###..####..#..###",
+    "#L............L###..####.....###",
+    "#L....LLLLLLLLL###...###########",
+    "#L....LLLLLLLLL###...###########",
+    "#L....LLLLLLLLL###..############",
+    "#L....LLLLLLLLL###..############",
+    "###D############################"
+  ],
+  "doors": [
+    {
+      "type": "door",
+      "x": 3,
+      "y": 31,
+      "toRoom": "room-9",
+      "entry": { "x": 23.5, "y": 2.5 }
+    }
+  ],
+  "objects": [],
+  "items": [
+    {
+      "id": "memory-legend",
+      "name": "Memory Legend",
+      "description": "Labels the bytes in memory view with the struct field they belong to.",
+      "color": "#e8a33d",
+      "position": { "x": 28.5, "y": 2.5 }
+    }
+  ],
+  "mirrorPlayerStart": { "x": 19.5, "y": 30.5 },
+  "mirrorGoal": { "x": 28, "y": 2 },
+  "fixedZoom": true
+}
