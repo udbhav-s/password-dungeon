@@ -36,18 +36,17 @@ int main() {
     printf("turns out the last password wasn't super secure...\n");
     printf("I have decided to not mention it in the output anymore.\n");
 
-    while (1) {
-        memset(buffer, 0, sizeof(buffer));
-        printf("Enter password: ");
-        read_line(buffer, sizeof(buffer));
-        notify_input();
+    memset(buffer, 0, sizeof(buffer));
+    printf("Enter password: \n");
+    read_line(buffer, sizeof(buffer));
+    notify_input();
 
-        if (strcmp(password, buffer) == 0) {
-            printf("success!\n");
-            notify_success();
-            return 0;
-        }
-
+    if (strcmp(password, buffer) == 0) {
+        printf("success!\n");
+        notify_success();
+    } else {
         printf("nope!\n");
     }
+
+    return 0;
 }
