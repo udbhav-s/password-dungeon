@@ -111,6 +111,10 @@ const room5bInteraction = new Room5BInteraction(
   () => awardAsciiLens(),
 );
 const room6Interaction = new Room6Interaction(() => openDialog(ROOM_6_COMPUTER_APPROACH_DIALOG));
+const ROOM_1_COMPUTER_DIALOG = [
+  "this is a computer",
+  "press [Enter] to access it",
+] as const;
 
 const simpleDungeon: Dungeon = {
   id: "simple-dungeon",
@@ -164,6 +168,7 @@ let playerWalking = false;
 let playerWalkElapsed = 0;
 let playerWalkFrame = 0;
 let activeComputer: RoomObject | undefined;
+let room1ComputerDialogShown = false;
 
 function applyDebugConfiguration(): void {
   player.inventory.length = 0;
@@ -610,6 +615,12 @@ function gameUpdate(): void {
   }
 
   const nearbyComputer = computerInRange();
+  if (currentRoom.id === "room-1" && nearbyComputer && !room1ComputerDialogShown) {
+    room1ComputerDialogShown = true;
+    openDialog(ROOM_1_COMPUTER_DIALOG);
+    return;
+  }
+
   if (keyWasPressed("Enter") && nearbyComputer) {
     activeComputer = nearbyComputer;
     openComputer(nearbyComputer.programId ?? currentRoom.id, player.inventory);
