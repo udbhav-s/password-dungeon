@@ -129,6 +129,17 @@ const ROOM_9_LEGEND = structLegend([
   ["excusesPrepared", "int", 4],
 ]);
 
+// Mirrors the field order of UserData in c_levels/room10.c. The struct packs to
+// 36 bytes with no padding, so back to back offsets match what the wasm reports.
+const ROOM_10_LEGEND = structLegend([
+  ["reminder", "char[8]", 8],
+  ["daysSinceLastExplosion", "int", 4],
+  ["date", "int", 4],
+  ["inputPassword", "char[8]", 8],
+  ["myFavoriteSpiderManMovie", "int", 4],
+  ["unmodifiable", "char[8]", 8],
+]);
+
 interface UsableItemLayout {
   item: Item;
   centerX: number;
@@ -202,6 +213,7 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     createManager: () => new Room10ProgramManager(),
     sourceLines: room10Source.split("\n"),
     loadingMessage: "loading room10.c...",
+    memoryLegend: ROOM_10_LEGEND,
   },
 };
 

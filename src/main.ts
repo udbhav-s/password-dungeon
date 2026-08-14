@@ -131,8 +131,12 @@ const room9: Room = room9Data as unknown as Room;
 const room9a: Room = room9aData as unknown as Room;
 const room10: Room = room10Data as unknown as Room;
 
-const room3Interaction = new Room3Interaction(room3, (position, size) =>
-  overlapsWall(room3, position, size),
+const room3Interaction = new Room3Interaction(
+  room3,
+  (position, size) => overlapsWall(room3, position, size),
+  // The exit stays locked until the ball is in the hole, which needs the program
+  // to shrink it first.
+  () => unlockCurrentRoomDoors(),
 );
 const room4Interaction = new Room4Interaction(room4, (position, size) =>
   overlapsWall(room4, position, size),
