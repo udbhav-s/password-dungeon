@@ -12,6 +12,11 @@ type TitleScreenState = "title" | "fading" | "done";
 let state: TitleScreenState = "title";
 let fadeElapsed = 0;
 
+export function setTitleScreenSkipped(skipped: boolean): void {
+  state = skipped ? "done" : "title";
+  fadeElapsed = 0;
+}
+
 // Fully opaque while on the title, then eases out to reveal the game behind it.
 function overlayAlpha(): number {
   if (state === "title") return 1;

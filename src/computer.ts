@@ -11,8 +11,10 @@ import {
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
+import { Room3ProgramManager } from "./programs/room3";
 import room1Source from "../c_levels/room1.c?raw";
 import room2Source from "../c_levels/room2.c?raw";
+import room3Source from "../c_levels/room3.c?raw";
 import {
   resetMemoryView,
   updateMemoryView,
@@ -59,6 +61,11 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     createManager: () => new Room2ProgramManager(),
     sourceLines: room2Source.split("\n"),
     loadingMessage: "loading room2.c...",
+  },
+  "room-3": {
+    createManager: () => new Room3ProgramManager(),
+    sourceLines: room3Source.split("\n"),
+    loadingMessage: "loading room3.c...",
   },
 };
 
@@ -209,6 +216,11 @@ export function isComputerOpen(): boolean {
 
 export function hasComputerProgramSucceeded(): boolean {
   return programManager.isSuccessful;
+}
+
+export function getRoom3BallSize(): number | undefined {
+  if (!(programManager instanceof Room3ProgramManager)) return undefined;
+  return programManager.getBallSize();
 }
 
 function visibleCodeLines(): number {

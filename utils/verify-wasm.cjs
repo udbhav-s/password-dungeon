@@ -95,6 +95,10 @@ async function verifyProgram({ baseUrl, fileName, factoryName, input, expected }
   const size = module.ccall("get_buffer_size", "number", [], []);
   const buffer = module.HEAPU8.slice(address, address + size);
   assert.equal(buffer.length, expected.bufferSize, `${factoryName} exposed an unexpected buffer size`);
+  if (expected.state) {
+    const state = module.ccall(expected.state.name, "number", [], []);
+    assert.equal(state, expected.state.value, `${factoryName} exposed an unexpected state value`);
+  }
 
   console.log(`${factoryName}: loaded, ran main, received input, and synchronized ${buffer.length} bytes`);
 }
@@ -122,6 +126,18 @@ async function main() {
       factoryName: "createRoom2Module",
       input: "supersecret1923",
       expected: { bufferSize: 20, output: ["Enter password", "success!"], successful: true },
+    });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room3.js",
+      factoryName: "createRoom3Module",
+      input: "10",
+      expected: {
+        bufferSize: 4,
+        output: ["Hi...", "Adjusted ball size"],
+        successful: true,
+        state: { name: "get_ball_size", value: 10 },
+      },
     });
   } finally {
     server.close();

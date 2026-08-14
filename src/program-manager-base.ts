@@ -21,7 +21,11 @@ type ProgramModuleOptions = {
 };
 
 type ProgramModuleFactory = (options: ProgramModuleOptions) => Promise<ProgramWasmModule>;
-type ProgramFactoryName = "createRoom1Module" | "createRoom2Module" | "createBuffer1Module";
+type ProgramFactoryName =
+  | "createRoom1Module"
+  | "createRoom2Module"
+  | "createRoom3Module"
+  | "createBuffer1Module";
 
 interface ProgramConfig {
   scriptPath: string;
@@ -32,6 +36,7 @@ declare global {
   interface Window {
     createRoom1Module?: ProgramModuleFactory;
     createRoom2Module?: ProgramModuleFactory;
+    createRoom3Module?: ProgramModuleFactory;
     createBuffer1Module?: ProgramModuleFactory;
   }
 }
@@ -46,6 +51,7 @@ const wasmGluePromises: Partial<Record<ProgramFactoryName, Promise<ProgramModule
 function moduleFactory(name: ProgramFactoryName): ProgramModuleFactory | undefined {
   if (name === "createRoom1Module") return window.createRoom1Module;
   if (name === "createRoom2Module") return window.createRoom2Module;
+  if (name === "createRoom3Module") return window.createRoom3Module;
   return window.createBuffer1Module;
 }
 
@@ -92,6 +98,11 @@ export class ProgramManagerBase implements ProgramManagerView {
 
   get bufferMemory(): Uint8Array {
     return this.memory;
+  }
+
+  protected callNumber(name: string): number | undefined {
+    if (!this.module) return undefined;
+    return this.module.ccall(name, "number", [], []) as number;
   }
 
   async start(): Promise<void> {

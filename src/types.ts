@@ -41,6 +41,23 @@ export interface Item {
   position: Point;
 }
 
+export interface GolfBallConfig {
+  position: Point;
+  size: number;
+  friction: number;
+  acceleration: number;
+  wallBounciness: number;
+}
+
+export interface GolfHoleConfig {
+  position: Point;
+  size: number;
+}
+
+export interface PressurePlateConfig {
+  position: Point;
+}
+
 export interface Player {
   position: Point;
   size: number;
@@ -69,6 +86,10 @@ export interface Room {
   objects: RoomObject[];
   items: Item[];
   playerStart: Point;
+  floorColor?: string;
+  golfBall?: GolfBallConfig;
+  golfHole?: GolfHoleConfig;
+  pressurePlate?: PressurePlateConfig;
 }
 
 export interface Dungeon {
