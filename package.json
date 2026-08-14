@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:wasm": "node utils/verify-wasm.cjs",
+    "verify:room10": "node utils/verify-room10-overflow.cjs"
   },
   "dependencies": {
     "littlejsengine": "^1.18.26"

@@ -1,0 +1,631 @@
+{
+  "id": "room-8a",
+  "name": "The Bit Corridor",
+  "width": 136,
+  "height": 5,
+  "wallColor": "#ffffff",
+  "floorColor": "#171c24",
+  "playerStart": {
+    "x": 2.5,
+    "y": 2.5
+  },
+  "tiles": [
+    "########################################################################################################################################",
+    "#......................................................................................................................................#",
+    "D....#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#...#.....D",
+    "#......................................................................................................................................#",
+    "########################################################################################################################################"
+  ],
+  "doors": [
+    {
+      "type": "door",
+      "x": 0,
+      "y": 2,
+      "toRoom": "room-8",
+      "entry": {
+        "x": 45.5,
+        "y": 15.5
+      }
+    },
+    {
+      "type": "door",
+      "id": "exit-door",
+      "locked": true,
+      "x": 135,
+      "y": 2,
+      "toRoom": "room-9",
+      "entry": {
+        "x": 2.5,
+        "y": 15.5
+      }
+    }
+  ],
+  "objects": [],
+  "items": [],
+  "pressurePads": [
+    {
+      "id": "pad-31-1",
+      "pairIndex": 31,
+      "value": 1,
+      "position": {
+        "x": 5,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-31-0",
+      "pairIndex": 31,
+      "value": 0,
+      "position": {
+        "x": 5,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-30-1",
+      "pairIndex": 30,
+      "value": 1,
+      "position": {
+        "x": 9,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-30-0",
+      "pairIndex": 30,
+      "value": 0,
+      "position": {
+        "x": 9,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-29-1",
+      "pairIndex": 29,
+      "value": 1,
+      "position": {
+        "x": 13,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-29-0",
+      "pairIndex": 29,
+      "value": 0,
+      "position": {
+        "x": 13,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-28-1",
+      "pairIndex": 28,
+      "value": 1,
+      "position": {
+        "x": 17,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-28-0",
+      "pairIndex": 28,
+      "value": 0,
+      "position": {
+        "x": 17,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-27-1",
+      "pairIndex": 27,
+      "value": 1,
+      "position": {
+        "x": 21,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-27-0",
+      "pairIndex": 27,
+      "value": 0,
+      "position": {
+        "x": 21,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-26-1",
+      "pairIndex": 26,
+      "value": 1,
+      "position": {
+        "x": 25,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-26-0",
+      "pairIndex": 26,
+      "value": 0,
+      "position": {
+        "x": 25,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-25-1",
+      "pairIndex": 25,
+      "value": 1,
+      "position": {
+        "x": 29,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-25-0",
+      "pairIndex": 25,
+      "value": 0,
+      "position": {
+        "x": 29,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-24-1",
+      "pairIndex": 24,
+      "value": 1,
+      "position": {
+        "x": 33,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-24-0",
+      "pairIndex": 24,
+      "value": 0,
+      "position": {
+        "x": 33,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-23-1",
+      "pairIndex": 23,
+      "value": 1,
+      "position": {
+        "x": 37,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-23-0",
+      "pairIndex": 23,
+      "value": 0,
+      "position": {
+        "x": 37,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-22-1",
+      "pairIndex": 22,
+      "value": 1,
+      "position": {
+        "x": 41,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-22-0",
+      "pairIndex": 22,
+      "value": 0,
+      "position": {
+        "x": 41,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-21-1",
+      "pairIndex": 21,
+      "value": 1,
+      "position": {
+        "x": 45,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-21-0",
+      "pairIndex": 21,
+      "value": 0,
+      "position": {
+        "x": 45,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-20-1",
+      "pairIndex": 20,
+      "value": 1,
+      "position": {
+        "x": 49,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-20-0",
+      "pairIndex": 20,
+      "value": 0,
+      "position": {
+        "x": 49,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-19-1",
+      "pairIndex": 19,
+      "value": 1,
+      "position": {
+        "x": 53,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-19-0",
+      "pairIndex": 19,
+      "value": 0,
+      "position": {
+        "x": 53,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-18-1",
+      "pairIndex": 18,
+      "value": 1,
+      "position": {
+        "x": 57,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-18-0",
+      "pairIndex": 18,
+      "value": 0,
+      "position": {
+        "x": 57,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-17-1",
+      "pairIndex": 17,
+      "value": 1,
+      "position": {
+        "x": 61,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-17-0",
+      "pairIndex": 17,
+      "value": 0,
+      "position": {
+        "x": 61,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-16-1",
+      "pairIndex": 16,
+      "value": 1,
+      "position": {
+        "x": 65,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-16-0",
+      "pairIndex": 16,
+      "value": 0,
+      "position": {
+        "x": 65,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-15-1",
+      "pairIndex": 15,
+      "value": 1,
+      "position": {
+        "x": 69,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-15-0",
+      "pairIndex": 15,
+      "value": 0,
+      "position": {
+        "x": 69,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-14-1",
+      "pairIndex": 14,
+      "value": 1,
+      "position": {
+        "x": 73,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-14-0",
+      "pairIndex": 14,
+      "value": 0,
+      "position": {
+        "x": 73,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-13-1",
+      "pairIndex": 13,
+      "value": 1,
+      "position": {
+        "x": 77,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-13-0",
+      "pairIndex": 13,
+      "value": 0,
+      "position": {
+        "x": 77,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-12-1",
+      "pairIndex": 12,
+      "value": 1,
+      "position": {
+        "x": 81,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-12-0",
+      "pairIndex": 12,
+      "value": 0,
+      "position": {
+        "x": 81,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-11-1",
+      "pairIndex": 11,
+      "value": 1,
+      "position": {
+        "x": 85,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-11-0",
+      "pairIndex": 11,
+      "value": 0,
+      "position": {
+        "x": 85,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-10-1",
+      "pairIndex": 10,
+      "value": 1,
+      "position": {
+        "x": 89,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-10-0",
+      "pairIndex": 10,
+      "value": 0,
+      "position": {
+        "x": 89,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-9-1",
+      "pairIndex": 9,
+      "value": 1,
+      "position": {
+        "x": 93,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-9-0",
+      "pairIndex": 9,
+      "value": 0,
+      "position": {
+        "x": 93,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-8-1",
+      "pairIndex": 8,
+      "value": 1,
+      "position": {
+        "x": 97,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-8-0",
+      "pairIndex": 8,
+      "value": 0,
+      "position": {
+        "x": 97,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-7-1",
+      "pairIndex": 7,
+      "value": 1,
+      "position": {
+        "x": 101,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-7-0",
+      "pairIndex": 7,
+      "value": 0,
+      "position": {
+        "x": 101,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-6-1",
+      "pairIndex": 6,
+      "value": 1,
+      "position": {
+        "x": 105,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-6-0",
+      "pairIndex": 6,
+      "value": 0,
+      "position": {
+        "x": 105,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-5-1",
+      "pairIndex": 5,
+      "value": 1,
+      "position": {
+        "x": 109,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-5-0",
+      "pairIndex": 5,
+      "value": 0,
+      "position": {
+        "x": 109,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-4-1",
+      "pairIndex": 4,
+      "value": 1,
+      "position": {
+        "x": 113,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-4-0",
+      "pairIndex": 4,
+      "value": 0,
+      "position": {
+        "x": 113,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-3-1",
+      "pairIndex": 3,
+      "value": 1,
+      "position": {
+        "x": 117,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-3-0",
+      "pairIndex": 3,
+      "value": 0,
+      "position": {
+        "x": 117,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-2-1",
+      "pairIndex": 2,
+      "value": 1,
+      "position": {
+        "x": 121,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-2-0",
+      "pairIndex": 2,
+      "value": 0,
+      "position": {
+        "x": 121,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-1-1",
+      "pairIndex": 1,
+      "value": 1,
+      "position": {
+        "x": 125,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-1-0",
+      "pairIndex": 1,
+      "value": 0,
+      "position": {
+        "x": 125,
+        "y": 3
+      }
+    },
+    {
+      "id": "pad-0-1",
+      "pairIndex": 0,
+      "value": 1,
+      "position": {
+        "x": 129,
+        "y": 1
+      }
+    },
+    {
+      "id": "pad-0-0",
+      "pairIndex": 0,
+      "value": 0,
+      "position": {
+        "x": 129,
+        "y": 3
+      }
+    }
+  ],
+  "pressureButton": {
+    "id": "submit-button",
+    "position": {
+      "x": 133,
+      "y": 2
+    }
+  },
+  "pressureTarget": 3735928559
+}

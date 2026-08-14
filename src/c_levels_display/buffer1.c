@@ -9,13 +9,12 @@ typedef struct UserData {
 int main() {
     UserData data;
     data.auth = 1;
-    memset(data.password, 0, 8);
+    memset(data.password, 0, sizeof(data.password));
 
-    // memset(&data.password, 0, 8);
-    printf("Enter the password: ");
-    // Overflow with any character
-    scanf("%s", data.password);
-    // clear_buffer();
+    printf("Enter the password:\n");
+
+    // Any input of 8 or more characters overwrites auth.
+    gets(data.password);
 
     if (data.auth != 1) {
         printf("\nSuccess!");
