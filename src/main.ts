@@ -62,11 +62,12 @@ import {
 import { Room3Interaction } from "./room-interactions/room3";
 import { Room4Interaction } from "./room-interactions/room4";
 import { Room5AInteraction } from "./room-interactions/room5a";
+import { Room5BInteraction } from "./room-interactions/room5b";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 const DEBUG_START_ROOM = "room-5";
-const DEBUG_ENABLED_ITEM_IDS = ["source-view"];
+const DEBUG_ENABLED_ITEM_IDS = ["source-view", "memory-view", "ascii-lens"];
 const DEBUG_CONSOLE = false;
 
 const room1: Room = room1Data as unknown as Room;
@@ -87,6 +88,10 @@ const room4Interaction = new Room4Interaction(room4, (position, size) =>
 const room5aInteraction = new Room5AInteraction(room5a, (position, size) =>
   overlapsWall(room5a, position, size),
   () => openDialog(["try pushing this crate"]),
+);
+const room5bInteraction = new Room5BInteraction(
+  () => player.inventory.some((item) => item.id === "memory-view"),
+  () => awardAsciiLens(),
 );
 
 const simpleDungeon: Dungeon = {
@@ -114,6 +119,7 @@ const player: Player = {
 };
 
 const ZOOM_STEP = 0.1;
+const CAMERA_SCALE_BASE = 48;
 const PLAYER_SPRITE_FRAME_SIZE = 64;
 const PLAYER_SPRITE_TEXTURE_INDEX = 1;
 const PLAYER_SPRITE_DRAW_SIZE = 1.2;
@@ -358,10 +364,16 @@ function findBoundaryDoor(): Door | undefined {
 function collectItems(): void {
   const playerWorld = player.position;
   const remainingItems: Item[] = [];
+  let asciiLensNearby = false;
 
   for (const item of roomItems) {
     const itemWorld = tileToWorld(currentRoom, item.position.x, item.position.y);
     const distance = Math.hypot(playerWorld.x - itemWorld.x, playerWorld.y - itemWorld.y);
+    if (item.id === "ascii-lens") {
+      asciiLensNearby = distance < player.size / 2 + 0.35;
+      remainingItems.push(item);
+      continue;
+    }
     if (distance < player.size / 2 + 0.35) {
       player.inventory.push(item);
       collectedItemIds.add(item.id);
@@ -388,6 +400,17 @@ function collectItems(): void {
   }
 
   roomItems = remainingItems;
+  room5bInteraction.updateItemProximity(asciiLensNearby);
+}
+
+function awardAsciiLens(): void {
+  if (collectedItemIds.has("ascii-lens")) return;
+  const item = roomItems.find((candidate) => candidate.id === "ascii-lens");
+  if (!item) return;
+  player.inventory.push(item);
+  collectedItemIds.add(item.id);
+  roomItems = roomItems.filter((candidate) => candidate.id !== item.id);
+  console.log(`Picked up ${item.name}.`, item);
 }
 
 function enteredLockedDoorAdjacentTile(): boolean {
@@ -446,7 +469,7 @@ function unlockCurrentRoomDoors(): void {
 }
 
 function applyZoom(): void {
-  setCameraScale(currentRoom.width * zoomLevel);
+  setCameraScale(CAMERA_SCALE_BASE * zoomLevel);
 }
 
 function updateZoom(): void {
@@ -478,7 +501,9 @@ function gameUpdate(): void {
     return;
   }
 
-  if (keyWasPressed("Escape")) debugOverlayVisible = !debugOverlayVisible;
+  if (keyWasPressed("Escape") && !isDialogOpen() && !isComputerOpen()) {
+    debugOverlayVisible = !debugOverlayVisible;
+  }
 
   if (!isComputerOpen()) updateZoom();
   setCameraPos(vec2(player.position.x, player.position.y));

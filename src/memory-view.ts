@@ -1,4 +1,4 @@
-import { Color, engineImageFont, timeDelta, vec2 } from "littlejsengine";
+import { Color, drawRect, engineImageFont, mousePosScreen, timeDelta, vec2 } from "littlejsengine";
 import { ProgramManagerView } from "./program-manager-base";
 
 const CANVAS_PIXELS = 1024;
@@ -9,6 +9,7 @@ const TERMINAL_PADDING = 32;
 
 const MEMORY_TEXT_SIZE = 14;
 const MEMORY_LINE_HEIGHT = 18;
+const BYTES_PER_LINE = 16;
 const REFRESH_INTERVAL_SECONDS = 0.25;
 const HEAT_DECAY_PER_SECOND = 2 / 3;
 
@@ -33,6 +34,7 @@ function parseColor(hex: string): Color {
 const ZERO_COLOR = parseColor("#6a6a6a");
 const NONZERO_COLOR = parseColor("#c8c8c8");
 const HOT_GOLD = parseColor("#ffe680");
+const ASCII_HOVER_COLOR = new Color(0.55, 0.35, 0.7, 0.6);
 
 function contentTop(): number {
   return TITLE_BAR_HEIGHT;
@@ -85,12 +87,42 @@ function drawLoadingMessage(): void {
   );
 }
 
-function drawBuffer(buffer: Uint8Array): void {
-  const y = payloadY();
+function asciiCharacter(value: number): string {
+  return value >= 32 && value <= 126 ? String.fromCharCode(value) : ".";
+}
 
-  for (let index = 0; index < buffer.length; index++) {
-    const x = byteX(index);
-    drawText(HEX_BYTES[buffer[index]], x, y, byteColor(index, buffer[index]));
+function drawBuffer(buffer: Uint8Array, asciiLensActive: boolean): void {
+  const lineCount = Math.ceil(buffer.length / BYTES_PER_LINE);
+
+  for (let line = 0; line < lineCount; line += 1) {
+    const lineStart = line * BYTES_PER_LINE;
+    const lineEnd = Math.min(buffer.length, lineStart + BYTES_PER_LINE);
+    const y = payloadY() + line * MEMORY_LINE_HEIGHT;
+    const lineWidth = (lineEnd - lineStart) * MEMORY_TEXT_SIZE * 3;
+    const hovered =
+      asciiLensActive &&
+      mousePosScreen.x >= TERMINAL_PADDING - 8 &&
+      mousePosScreen.x <= TERMINAL_PADDING + lineWidth &&
+      mousePosScreen.y >= y - 4 &&
+      mousePosScreen.y <= y + MEMORY_LINE_HEIGHT - 2;
+
+    if (hovered) {
+      drawRect(
+        vec2(TERMINAL_PADDING - 8 + (lineWidth + 16) / 2, y + MEMORY_LINE_HEIGHT / 2 - 2),
+        vec2(lineWidth + 16, MEMORY_LINE_HEIGHT),
+        ASCII_HOVER_COLOR,
+        0,
+        false,
+        true,
+      );
+    }
+
+    for (let index = lineStart; index < lineEnd; index += 1) {
+      const lineIndex = index - lineStart;
+      const x = byteX(lineIndex);
+      const text = hovered ? asciiCharacter(buffer[index]) : HEX_BYTES[buffer[index]];
+      drawText(text, x, y, byteColor(index, buffer[index]));
+    }
   }
 }
 
@@ -116,11 +148,11 @@ export function updateMemoryView(): void {
   decayHeat();
 }
 
-export function drawMemoryView(): void {
+export function drawMemoryView(asciiLensActive = false): void {
   if (!manager || manager.isLoading) {
     drawLoadingMessage();
     return;
   }
 
-  drawBuffer(manager.bufferMemory);
+  drawBuffer(manager.bufferMemory, asciiLensActive);
 }

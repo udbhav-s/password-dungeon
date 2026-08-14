@@ -123,6 +123,7 @@ let sourceLines = room1Source.split("\n");
 let loadingMessage = "loading room1.c...";
 let sourceRedaction: string | undefined;
 let usableItems: Item[] = [];
+let asciiLensActive = false;
 let typingFrame = 0;
 const typingKeys = new Set<string>();
 
@@ -256,8 +257,12 @@ export function openComputer(programId: string, inventory: readonly Item[]): voi
   loadingMessage = program.loadingMessage;
   sourceRedaction = program.sourceRedaction;
   usableItems = inventory.filter(
-    (item) => item.id === "source-view" || item.id === "memory-view",
+    (item) =>
+      item.id === "source-view" ||
+      item.id === "memory-view" ||
+      item.id === "ascii-lens",
   );
+  asciiLensActive = false;
   resetTypingFrame();
   resetMemoryView(programManager);
   void programManager.start();
@@ -341,9 +346,11 @@ export function updateComputer(): void {
           HUD_CENTER_Y,
           ITEM_PANEL_SIZE,
           ITEM_PANEL_SIZE,
-        ) && (item.id === "source-view" || item.id === "memory-view")
+        ) &&
+        (item.id === "source-view" || item.id === "memory-view" || item.id === "ascii-lens")
       ) {
-        setActiveView(item.id === "source-view" ? "source" : "memory");
+        if (item.id === "ascii-lens") asciiLensActive = !asciiLensActive;
+        else setActiveView(item.id === "source-view" ? "source" : "memory");
         break;
       }
     }
@@ -534,7 +541,8 @@ function drawTitleBar(): void {
 function drawUsableItems(): void {
   for (const { item, centerX } of usableItemLayouts()) {
     const itemView = item.id === "source-view" ? "source" : "memory";
-    const isActive = activeView === itemView;
+    const isActive =
+      item.id === "ascii-lens" ? asciiLensActive : activeView === itemView;
     drawRect(
       vec2(centerX, HUD_CENTER_Y),
       vec2(ITEM_PANEL_SIZE),
@@ -588,7 +596,7 @@ export function drawComputer(): void {
   );
 
   if (activeView === "source") drawCodeView();
-  else if (activeView === "memory") drawMemoryView();
+  else if (activeView === "memory") drawMemoryView(asciiLensActive);
   else drawTerminal();
   drawTitleBar();
   drawHud();

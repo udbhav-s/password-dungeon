@@ -80,11 +80,26 @@ export interface Player {
 
 export type DialogMessageSequence = readonly string[];
 
+export interface DialogChoice {
+  label: string;
+  onSelect: () => void;
+}
+
+export interface DialogOptions {
+  choices?: readonly DialogChoice[];
+  onComplete?: () => void;
+  onEscape?: () => void;
+}
+
 export interface DialogState {
   messages: DialogMessageSequence;
   messageIndex: number;
   visibleCharacters: number;
   charactersPerSecond: number;
+  choices?: readonly DialogChoice[];
+  selectedChoiceIndex: number;
+  onComplete?: () => void;
+  onEscape?: () => void;
 }
 
 export interface Room {

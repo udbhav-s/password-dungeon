@@ -74,14 +74,14 @@
       "x": 21,
       "y": 31,
       "toRoom": "room-5b",
-      "entry": { "x": 21.5, "y": 2.5 }
+      "entry": { "x": 4.5, "y": 1.5 }
     },
     {
       "type": "door",
       "x": 22,
       "y": 31,
       "toRoom": "room-5b",
-      "entry": { "x": 22.5, "y": 2.5 }
+      "entry": { "x": 5.5, "y": 1.5 }
     },
     {
       "type": "door",
