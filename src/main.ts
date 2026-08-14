@@ -23,6 +23,9 @@ import room2Data from "./data/rooms/room-2.json";
 import room3Data from "./data/rooms/room-3.json";
 import room4Data from "./data/rooms/room-4.json";
 import room5Data from "./data/rooms/room-5.json";
+import room5aData from "./data/rooms/room-5a.json";
+import room5bData from "./data/rooms/room-5b.json";
+import room6Data from "./data/rooms/room-6.json";
 import type {
   Dungeon,
   Door,
@@ -37,6 +40,7 @@ import type {
 import {
   drawComputer,
   getActiveBallSize,
+  getActiveCrateSize,
   hasComputerProgramSucceeded,
   isComputerOpen,
   openComputer,
@@ -57,11 +61,13 @@ import {
 } from "./room-interactions/room2";
 import { Room3Interaction } from "./room-interactions/room3";
 import { Room4Interaction } from "./room-interactions/room4";
+import { Room5AInteraction } from "./room-interactions/room5a";
+import { Room5BInteraction } from "./room-interactions/room5b";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
 const DEBUG_MODE = false;
-const DEBUG_START_ROOM = "room-4";
-const DEBUG_ENABLED_ITEM_IDS = ["source-view"];
+const DEBUG_START_ROOM = "room-5";
+const DEBUG_ENABLED_ITEM_IDS = ["source-view", "memory-view", "ascii-lens"];
 const DEBUG_CONSOLE = false;
 
 const room1: Room = room1Data as unknown as Room;
@@ -69,12 +75,23 @@ const room2: Room = room2Data as unknown as Room;
 const room3: Room = room3Data as unknown as Room;
 const room4: Room = room4Data as unknown as Room;
 const room5: Room = room5Data as unknown as Room;
+const room5a: Room = room5aData as unknown as Room;
+const room5b: Room = room5bData as unknown as Room;
+const room6: Room = room6Data as unknown as Room;
 
 const room3Interaction = new Room3Interaction(room3, (position, size) =>
   overlapsWall(room3, position, size),
 );
 const room4Interaction = new Room4Interaction(room4, (position, size) =>
   overlapsWall(room4, position, size),
+);
+const room5aInteraction = new Room5AInteraction(room5a, (position, size) =>
+  overlapsWall(room5a, position, size),
+  () => openDialog(["try pushing this crate"]),
+);
+const room5bInteraction = new Room5BInteraction(
+  () => player.inventory.some((item) => item.id === "memory-view"),
+  () => awardAsciiLens(),
 );
 
 const simpleDungeon: Dungeon = {
@@ -87,6 +104,9 @@ const simpleDungeon: Dungeon = {
     [room3.id]: room3,
     [room4.id]: room4,
     [room5.id]: room5,
+    [room5a.id]: room5a,
+    [room5b.id]: room5b,
+    [room6.id]: room6,
   },
 };
 
@@ -99,6 +119,7 @@ const player: Player = {
 };
 
 const ZOOM_STEP = 0.1;
+const CAMERA_SCALE_BASE = 48;
 const PLAYER_SPRITE_FRAME_SIZE = 64;
 const PLAYER_SPRITE_TEXTURE_INDEX = 1;
 const LAVA_FRAME_SIZE = 96;
@@ -244,6 +265,7 @@ function loadRoom(roomId: string, entry?: { x: number; y: number }): void {
 
   if (currentRoom.id === "room-3") room3Interaction.reset();
   if (currentRoom.id === "room-4") room4Interaction.reset();
+  if (currentRoom.id === "room-5a") room5aInteraction.reset();
 
   const spawn = entry ?? currentRoom.playerStart;
   const worldPosition = tileToWorld(currentRoom, spawn.x, spawn.y);
@@ -344,10 +366,16 @@ function findBoundaryDoor(): Door | undefined {
 function collectItems(): void {
   const playerWorld = player.position;
   const remainingItems: Item[] = [];
+  let asciiLensNearby = false;
 
   for (const item of roomItems) {
     const itemWorld = tileToWorld(currentRoom, item.position.x, item.position.y);
     const distance = Math.hypot(playerWorld.x - itemWorld.x, playerWorld.y - itemWorld.y);
+    if (item.id === "ascii-lens") {
+      asciiLensNearby = distance < player.size / 2 + 0.35;
+      remainingItems.push(item);
+      continue;
+    }
     if (distance < player.size / 2 + 0.35) {
       player.inventory.push(item);
       collectedItemIds.add(item.id);
@@ -360,6 +388,12 @@ function collectItems(): void {
               "you are now able to see the C code that the programs on computers are running",
               "maybe this is useful..?",
             ]
+          : item.id === "memory-view"
+            ? [
+                "You got the memory view item!",
+                "This allows you to see what the program memory looks like for running code",
+                "very cool",
+              ]
           : [`you got ${item.name.toLowerCase()}!`],
       );
     } else {
@@ -368,6 +402,17 @@ function collectItems(): void {
   }
 
   roomItems = remainingItems;
+  room5bInteraction.updateItemProximity(asciiLensNearby);
+}
+
+function awardAsciiLens(): void {
+  if (collectedItemIds.has("ascii-lens")) return;
+  const item = roomItems.find((candidate) => candidate.id === "ascii-lens");
+  if (!item) return;
+  player.inventory.push(item);
+  collectedItemIds.add(item.id);
+  roomItems = roomItems.filter((candidate) => candidate.id !== item.id);
+  console.log(`Picked up ${item.name}.`, item);
 }
 
 function enteredLockedDoorAdjacentTile(): boolean {
@@ -426,7 +471,7 @@ function unlockCurrentRoomDoors(): void {
 }
 
 function applyZoom(): void {
-  setCameraScale(currentRoom.width * zoomLevel);
+  setCameraScale(CAMERA_SCALE_BASE * zoomLevel);
 }
 
 function updateZoom(): void {
@@ -458,7 +503,9 @@ function gameUpdate(): void {
     return;
   }
 
-  if (keyWasPressed("Escape")) debugOverlayVisible = !debugOverlayVisible;
+  if (keyWasPressed("Escape") && !isDialogOpen() && !isComputerOpen()) {
+    debugOverlayVisible = !debugOverlayVisible;
+  }
 
   if (!isComputerOpen()) updateZoom();
   setCameraPos(vec2(player.position.x, player.position.y));
@@ -481,6 +528,9 @@ function gameUpdate(): void {
       else if (currentRoom.id === "room-4" && activeComputer?.id === "computer-4-right") {
         room4Interaction.syncBallSizeFromProgram(getActiveBallSize());
       }
+      else if (currentRoom.id === "room-5a") {
+        room5aInteraction.syncCrateSizeFromProgram(getActiveCrateSize());
+      }
       else unlockCurrentRoomDoors();
     }
     return;
@@ -490,7 +540,12 @@ function gameUpdate(): void {
   if (isInventoryOpen()) return;
 
   const direction = keyDirection();
+  const playerPositionBeforeMove = { ...player.position };
   const playerMoved = movePlayer(direction);
+  const playerMovement = {
+    x: player.position.x - playerPositionBeforeMove.x,
+    y: player.position.y - playerPositionBeforeMove.y,
+  };
   updatePlayerAnimation(direction, playerMoved);
   collectItems();
   if (currentRoom.id === "room-3") {
@@ -498,6 +553,9 @@ function gameUpdate(): void {
   }
   if (currentRoom.id === "room-4") {
     room4Interaction.update(player.position, player.size, direction);
+  }
+  if (currentRoom.id === "room-5a") {
+    room5aInteraction.update(player.position, player.size, playerMovement);
   }
 
   const currentPlayerTile = playerTile();
@@ -606,6 +664,7 @@ function gameRender(): void {
 
   if (currentRoom.id === "room-3") room3Interaction.draw();
   if (currentRoom.id === "room-4") room4Interaction.draw();
+  if (currentRoom.id === "room-5a") room5aInteraction.draw();
 
   for (const item of roomItems) {
     const position = tileToWorld(currentRoom, item.position.x, item.position.y);

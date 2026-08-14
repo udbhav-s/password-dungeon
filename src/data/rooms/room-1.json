@@ -4,6 +4,7 @@
   "width": 32,
   "height": 32,
   "wallColor": "#ffffff",
+  "floorColor": "#202020",
   "playerStart": { "x": 4.5, "y": 2.5 },
   "tiles": [
     "################################",
