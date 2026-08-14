@@ -2,6 +2,7 @@ import {
   BLACK,
   Color,
   drawRect,
+  drawTile,
   engineImageFont,
   engineInit,
   keyDirection,
@@ -12,8 +13,10 @@ import {
   setCanvasClearColor,
   setCanvasFixedSize,
   setCanvasPixelated,
+  tile,
   timeDelta,
   vec2,
+  WHITE,
 } from "littlejsengine";
 import room1Data from "./data/rooms/room-1.json";
 import room2Data from "./data/rooms/room-2.json";
@@ -88,6 +91,10 @@ const player: Player = {
 };
 
 const ZOOM_STEP = 0.1;
+const PLAYER_SPRITE_FRAME_SIZE = 64;
+const PLAYER_SPRITE_TEXTURE_INDEX = 1;
+const PLAYER_SPRITE_DRAW_SIZE = 1.2;
+const PLAYER_WALK_FRAME_DURATION = 0.16;
 // Fixed for now; a future player-progression system can raise/lower these.
 let minZoom = 1.6;
 let maxZoom = 2.5;
@@ -100,6 +107,10 @@ let transitionCooldown = 0;
 let previousPlayerTile: Point = { x: 0, y: 0 };
 let lockedDoorDialogShown = false;
 let debugOverlayVisible = false;
+let playerFacing: "left" | "right" = "right";
+let playerWalking = false;
+let playerWalkElapsed = 0;
+let playerWalkFrame = 0;
 
 function applyDebugConfiguration(): void {
   player.inventory.length = 0;
@@ -249,8 +260,8 @@ function overlapsWall(room: Room, position: { x: number; y: number }, size = pla
   return false;
 }
 
-function movePlayer(direction: { x: number; y: number }): void {
-  if (direction.x === 0 && direction.y === 0) return;
+function movePlayer(direction: { x: number; y: number }): boolean {
+  if (direction.x === 0 && direction.y === 0) return false;
 
   const length = Math.hypot(direction.x, direction.y) || 1;
   const velocity = {
@@ -258,11 +269,49 @@ function movePlayer(direction: { x: number; y: number }): void {
     y: (direction.y / length) * player.speed * timeDelta,
   };
 
+  let moved = false;
   const nextX = { x: player.position.x + velocity.x, y: player.position.y };
-  if (!overlapsWall(currentRoom, nextX)) player.position.x = nextX.x;
+  if (velocity.x !== 0 && !overlapsWall(currentRoom, nextX)) {
+    player.position.x = nextX.x;
+    moved = true;
+  }
 
   const nextY = { x: player.position.x, y: player.position.y + velocity.y };
-  if (!overlapsWall(currentRoom, nextY)) player.position.y = nextY.y;
+  if (velocity.y !== 0 && !overlapsWall(currentRoom, nextY)) {
+    player.position.y = nextY.y;
+    moved = true;
+  }
+
+  return moved;
+}
+
+function updatePlayerAnimation(direction: Point, moved: boolean): void {
+  if (direction.x < 0) playerFacing = "left";
+  else if (direction.x > 0) playerFacing = "right";
+
+  playerWalking = moved;
+  if (!moved) {
+    playerWalkElapsed = 0;
+    playerWalkFrame = 0;
+    return;
+  }
+
+  playerWalkElapsed += timeDelta;
+  playerWalkFrame = Math.floor(playerWalkElapsed / PLAYER_WALK_FRAME_DURATION) % 2;
+}
+
+function playerSpriteFrame(): number {
+  if (!playerWalking) return playerFacing === "left" ? 0 : 1;
+  return playerFacing === "left" ? 2 + playerWalkFrame : 4 + playerWalkFrame;
+}
+
+function drawPlayer(): void {
+  drawTile(
+    vec2(player.position.x, player.position.y),
+    vec2(PLAYER_SPRITE_DRAW_SIZE),
+    tile(playerSpriteFrame(), PLAYER_SPRITE_FRAME_SIZE, PLAYER_SPRITE_TEXTURE_INDEX),
+    WHITE,
+  );
 }
 
 function findBoundaryDoor(): Door | undefined {
@@ -407,7 +456,8 @@ function gameUpdate(): void {
   if (isInventoryOpen()) return;
 
   const direction = keyDirection();
-  movePlayer(direction);
+  const playerMoved = movePlayer(direction);
+  updatePlayerAnimation(direction, playerMoved);
   collectItems();
   if (currentRoom.id === "room-3") {
     room3Interaction.update(player.position, player.size, direction);
@@ -519,7 +569,7 @@ function gameRender(): void {
     drawRect(vec2(position.x, position.y), vec2(0.8), parseColor(object.color));
   }
 
-  drawRect(vec2(player.position.x, player.position.y), vec2(player.size), parseColor(player.color));
+  drawPlayer();
 }
 
 function gameRenderPost(): void {
@@ -552,5 +602,5 @@ void engineInit(
   () => {},
   gameRender,
   gameRenderPost,
-  ["/assets/password-dungeon-typing.png"],
+  ["/assets/password-dungeon-typing.png", "/assets/character.png"],
 );
