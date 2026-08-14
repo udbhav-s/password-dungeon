@@ -13,10 +13,12 @@ import {
 import room1Source from "../c_levels/room1.c?raw";
 import room2Source from "../c_levels/room2.c?raw";
 import room3Source from "../c_levels/room3.c?raw";
+import room4Source from "../c_levels/room4.c?raw";
 import type { ProgramManagerBase } from "./program-manager-base";
 import { Room1ProgramManager } from "./programs/room1";
 import { Room2ProgramManager } from "./programs/room2";
 import { Room3ProgramManager } from "./programs/room3";
+import { Room4ProgramManager } from "./programs/room4";
 import type { Item } from "./types";
 import { drawMemoryView, resetMemoryView, updateMemoryView } from "./memory-view";
 
@@ -89,6 +91,11 @@ const roomPrograms: Record<string, ProgramDefinition> = {
     createManager: () => new Room3ProgramManager(),
     sourceLines: room3Source.split("\n"),
     loadingMessage: "loading room3.c...",
+  },
+  "room-4-lock": {
+    createManager: () => new Room4ProgramManager(),
+    sourceLines: room4Source.split("\n"),
+    loadingMessage: "loading room4.c...",
   },
 };
 
@@ -213,10 +220,10 @@ function closeComputer(): void {
   resetTypingFrame();
 }
 
-export function openComputer(roomId: string, inventory: readonly Item[]): void {
-  const program = roomPrograms[roomId];
+export function openComputer(programId: string, inventory: readonly Item[]): void {
+  const program = roomPrograms[programId];
   if (!program) {
-    console.warn(`No computer program is configured for ${roomId}.`);
+    console.warn(`No computer program is configured for ${programId}.`);
     return;
   }
 
@@ -240,7 +247,7 @@ export function hasComputerProgramSucceeded(): boolean {
   return programManager.isSuccessful;
 }
 
-export function getRoom3BallSize(): number | undefined {
+export function getActiveBallSize(): number | undefined {
   if (!(programManager instanceof Room3ProgramManager)) return undefined;
   return programManager.getBallSize();
 }

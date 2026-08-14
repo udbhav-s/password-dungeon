@@ -15,6 +15,7 @@ export interface Tile {
 
 export interface Door extends Tile {
   type: "door";
+  id?: string;
   locked?: boolean;
   x: number;
   y: number;
@@ -29,6 +30,7 @@ export interface RoomObject extends Tile {
   id: string;
   name: string;
   objectType: RoomObjectType;
+  programId?: string;
   color: string;
   position: Point;
 }

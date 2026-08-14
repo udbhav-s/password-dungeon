@@ -40,6 +40,7 @@ export class Room3Interaction {
   constructor(
     private readonly room: Room,
     private readonly isBlocked: CollisionChecker,
+    private readonly onBallInHole?: () => void,
   ) {
     this.reset();
   }
@@ -188,6 +189,7 @@ export class Room3Interaction {
       this.golfBall.position = { ...holeWorld };
       this.golfBall.velocity = { x: 0, y: 0 };
       this.golfBall.inHole = true;
+      this.onBallInHole?.();
     }
   }
 

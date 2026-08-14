@@ -139,6 +139,17 @@ async function main() {
         state: { name: "get_ball_size", value: 10 },
       },
     });
+    await verifyProgram({
+      baseUrl,
+      fileName: "room4.js",
+      factoryName: "createRoom4Module",
+      input: "pewcuwersecretFINAL",
+      expected: {
+        bufferSize: 20,
+        output: ["You will not guess this one", "Correct"],
+        successful: true,
+      },
+    });
   } finally {
     server.close();
   }
