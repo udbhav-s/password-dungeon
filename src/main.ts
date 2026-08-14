@@ -75,7 +75,7 @@ import {
 } from "./room-interactions/room10";
 
 // Debug startup configuration. Set DEBUG_MODE to false to restore the normal game flow.
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 const DEBUG_START_ROOM = "room-10";
 const DEBUG_ENABLED_ITEM_IDS = ["source-view", "memory-view", "ascii-lens"];
 const DEBUG_CONSOLE = false;
