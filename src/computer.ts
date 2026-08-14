@@ -135,6 +135,17 @@ const roomPrograms: Record<string, ProgramDefinition> = {
   },
 };
 
+const PROGRAMS_WITHOUT_MEMORY_VIEW = new Set([
+  "room-1",
+  "room-2",
+  "room-3",
+  "room-4-lock",
+]);
+
+function programSupportsMemoryView(programId: string): boolean {
+  return !PROGRAMS_WITHOUT_MEMORY_VIEW.has(programId);
+}
+
 let computerOpen = false;
 let programManager: ProgramManagerBase = new Room1ProgramManager();
 let activeView: ComputerView = "console";
@@ -144,6 +155,7 @@ let loadingMessage = "loading room1.c...";
 let sourceRedaction: string | undefined;
 let usableItems: Item[] = [];
 let asciiLensActive = false;
+let memoryViewSupported = false;
 let typingFrame = 0;
 const typingKeys = new Set<string>();
 
@@ -276,6 +288,7 @@ export function openComputer(programId: string, inventory: readonly Item[]): voi
   sourceLines = program.sourceLines;
   loadingMessage = program.loadingMessage;
   sourceRedaction = program.sourceRedaction;
+  memoryViewSupported = programSupportsMemoryView(programId);
   usableItems = inventory.filter(
     (item) =>
       item.id === "source-view" ||
@@ -379,7 +392,7 @@ export function updateComputer(): void {
   if (activeView === "source" && mouseWheel !== 0) {
     handleSourceWheel(mouseWheel > 0 ? 1 : -1);
   }
-  if (activeView === "memory") updateMemoryView();
+  if (activeView === "memory" && memoryViewSupported) updateMemoryView();
 }
 
 function drawTerminalText(text: string, x: number, y: number, center = false): void {
@@ -496,6 +509,17 @@ function drawSourceScrollbar(): void {
     0,
     false,
     true,
+  );
+}
+
+function drawUnsupportedMemoryView(): void {
+  engineImageFont.drawTextScreen(
+    "This program doesn't support memory view!",
+    vec2(CANVAS_PIXELS / 2, (TITLE_BAR_HEIGHT + HUD_TOP) / 2),
+    20,
+    true,
+    WHITE,
+    false,
   );
 }
 
@@ -640,7 +664,10 @@ export function drawComputer(): void {
   );
 
   if (activeView === "source") drawCodeView();
-  else if (activeView === "memory") drawMemoryView(asciiLensActive);
+  else if (activeView === "memory") {
+    if (memoryViewSupported) drawMemoryView(asciiLensActive);
+    else drawUnsupportedMemoryView();
+  }
   else drawTerminal();
   drawTitleBar();
   drawHud();
